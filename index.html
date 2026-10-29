@@ -1,0 +1,1327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="HypoDiabetic Monitor: meal photo scanner, camera pulse check, label reader, post-meal walks and readings log for diabetes and blood pressure.">
+<meta name="theme-color" content="#0E7466">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>HypoDiabetic Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: mobile-first app shell, sticky tab rail, one column of instrument panels (max 760px) */
+:root{
+  --bg:#EEF3F1; --surface:#FFFFFF; --surface-2:#E3EBE8; --ink:#13211F; --muted:#5A6E6A; --line:#CBD8D4;
+  --accent:#0E7466; --accent-ink:#FFFFFF;
+  --gluco:#B86E06; --gluco-soft:#F8E9D2; --cardio:#B8323F; --cardio-soft:#F6DCDF;
+  --ok:#2E7D4F; --ok-soft:#DCEFE3; --warn:#A86A00; --warn-soft:#FBEBCB; --bad:#B42A36; --bad-soft:#F8DADD;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0D1514; --surface:#15201E; --surface-2:#1D2B28; --ink:#E3EEEB; --muted:#93A7A2; --line:#2B3B38;
+  --accent:#3FB8A5; --accent-ink:#06211D;
+  --gluco:#F0A63A; --gluco-soft:#3A2A12; --cardio:#F07583; --cardio-soft:#3E1C21;
+  --ok:#5FCB8C; --ok-soft:#173326; --warn:#F2B64A; --warn-soft:#3A2C10; --bad:#F27782; --bad-soft:#3F1A1F;
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0D1514; --surface:#15201E; --surface-2:#1D2B28; --ink:#E3EEEB; --muted:#93A7A2; --line:#2B3B38;
+  --accent:#3FB8A5; --accent-ink:#06211D;
+  --gluco:#F0A63A; --gluco-soft:#3A2A12; --cardio:#F07583; --cardio-soft:#3E1C21;
+  --ok:#5FCB8C; --ok-soft:#173326; --warn:#F2B64A; --warn-soft:#3A2C10; --bad:#F27782; --bad-soft:#3F1A1F;
+  color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding-top:20px;flex-wrap:wrap}
+.brand{display:flex;flex-direction:column;gap:2px}
+.brand h1{font-family:var(--f-display);font-weight:700;font-size:30px;letter-spacing:-.02em;margin:0;line-height:1.05;text-wrap:balance}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:0;color:var(--muted);font-size:13px}
+.cond{font-family:var(--f-mono);font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 10px;background:var(--surface)}
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:8px;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs .rail{display:flex;gap:4px;background:var(--surface-2);border-radius:12px;padding:4px;width:max-content;min-width:100%}
+nav.tabs a{flex:1;text-align:center;white-space:nowrap;text-decoration:none;color:var(--muted);font-weight:500;font-size:14px;padding:8px 12px;border-radius:9px}
+nav.tabs a[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+nav.tabs a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+section.view{display:flex;flex-direction:column;gap:16px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel h2{font-family:var(--f-display);font-weight:700;font-size:20px;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.panel h3{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0;font-weight:600}
+.sub{color:var(--muted);font-size:14px;margin:0;max-width:65ch}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stat{background:var(--surface-2);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.stat .v{font-family:var(--f-mono);font-size:22px;font-weight:500;font-variant-numeric:tabular-nums}
+.stat .v small{font-size:12px;color:var(--muted);margin-left:3px}
+.stat .n{font-size:12px;color:var(--muted)}
+.stat.g .v{color:var(--gluco)} .stat.c .v{color:var(--cardio)}
+button,.btn{font:inherit;font-weight:600;font-size:14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:10px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;justify-content:center}
+button.primary,.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.ghost{background:transparent}
+button:disabled{opacity:.55;cursor:not-allowed}
+button.sm{padding:6px 10px;font-size:13px}
+label.fld{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);flex:1;min-width:120px}
+input[type=number],input[type=text],input[type=datetime-local],select{font:inherit;font-size:15px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:9px 10px;width:100%;font-family:var(--f-mono)}
+.drop{border:1.5px dashed var(--line);border-radius:12px;padding:22px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;background:var(--surface-2)}
+.drop.over{border-color:var(--accent)}
+.drop input[type=file]{display:none}
+.preview{max-width:100%;max-height:280px;border-radius:10px;object-fit:cover}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.04em}
+.chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.mute{background:var(--surface-2);color:var(--muted)}
+.alert{display:grid;grid-template-columns:6px 1fr;gap:12px;border-radius:12px;background:var(--surface);border:1px solid var(--line);overflow:hidden}
+.alert .bar{background:var(--muted)}
+.alert.bad .bar{background:var(--bad)} .alert.warn .bar{background:var(--warn)} .alert.ok .bar{background:var(--ok)}
+.alert .body{padding:12px 14px 12px 0;display:flex;flex-direction:column;gap:4px;min-width:0}
+.alert .t{font-weight:600}
+.alert .d{font-size:14px;color:var(--muted)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+.tbl{overflow-x:auto}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.banner{background:var(--warn-soft);color:var(--ink);border-radius:12px;padding:10px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:14px}
+.score{display:grid;grid-template-columns:120px 1fr;gap:16px;align-items:center}
+@media (max-width:420px){.score{grid-template-columns:1fr}}
+.ring{width:120px;height:120px}
+.ring text{font-family:var(--f-mono)}
+.meter{height:8px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.meter.g i{background:var(--gluco)} .meter.c i{background:var(--cardio)}
+.lbl-row{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);gap:8px}
+.lbl-row b{color:var(--ink);font-family:var(--f-mono);font-weight:500}
+.chart{width:100%;height:auto;display:block}
+.chart text{font-family:var(--f-mono);font-size:10px;fill:var(--muted)}
+.status{font-size:14px;color:var(--muted);min-height:1.4em}
+.status.err{color:var(--bad)}
+.items li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+.items{list-style:none;padding:0;margin:0}
+.items li span:last-child{font-family:var(--f-mono);white-space:nowrap}
+.verdict{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.big{font-family:var(--f-display);font-size:26px;font-weight:700;letter-spacing:-.01em}
+.timer{font-family:var(--f-mono);font-size:44px;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.foot{font-size:12px;color:var(--muted);text-align:center;max-width:60ch;margin:8px auto 0}
+.seg{display:inline-flex;background:var(--surface-2);border-radius:10px;padding:3px;gap:3px}
+.seg button{border:none;background:transparent;padding:7px 12px;font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+ol.steps{margin:0;padding-left:20px;font-size:14px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.spin{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .8s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+html{-webkit-text-size-adjust:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+.foot a{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Hypo<span>Diabetic</span> Monitor</h1>
+      <p>Diabetes &amp; blood pressure companion: scan, walk, track.</p>
+    </div>
+    <div class="row" style="gap:8px"><span class="cond" id="condBadge">Diabetes + Hypertension</span><select id="langSel" aria-label="Language" style="width:auto;padding:5px 8px;font-size:13px;font-family:var(--f-body)"><option value="en">English</option><option value="zh">繁體中文</option></select></div>
+  </header>
+
+  <nav class="tabs" aria-label="Sections"><div class="rail">
+    <a href="#today" data-v="today">Today</a>
+    <a href="#plate" data-v="plate">Plate scan</a>
+    <a href="#pulse" data-v="pulse">Pulse scan</a>
+    <a href="#label" data-v="label">Label scan</a>
+    <a href="#steps" data-v="steps">Steps</a>
+    <a href="#log" data-v="log">Readings</a>
+  </div></nav>
+
+  <div id="exampleBanner" class="banner" hidden>
+    <span>You're seeing example entries so the app isn't empty. Your own entries replace them.</span>
+    <button class="sm" id="clearExamples">Clear examples</button>
+  </div>
+
+  <!-- TODAY -->
+  <section class="view" id="v-today">
+    <div id="walkCard"></div>
+    <div class="panel">
+      <h2>Spike &amp; Surge alerts</h2>
+      <div id="alerts" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div class="panel">
+      <h3>Today</h3>
+      <div class="grid2" id="todayStats"></div>
+    </div>
+    <div class="panel">
+      <h2>Blood Vessel Health Score</h2>
+      <div class="score">
+        <svg class="ring" viewBox="0 0 120 120" id="ring" role="img" aria-label="Score"></svg>
+        <div style="display:flex;flex-direction:column;gap:10px" id="scoreParts"></div>
+      </div>
+      <p class="sub">A motivation score from your last 7 days: steps vs goal, sodium vs limit, and how many blood pressure readings were in target. It is not a clinical measure.</p>
+    </div>
+  </section>
+
+  <!-- PLATE -->
+  <section class="view" id="v-plate" hidden>
+    <div class="panel">
+      <h2>Visual Plate AI</h2>
+      <p class="sub">Take a photo of your plate. The app estimates carbs, glycemic load and sodium, then flags the meal as safe, moderate or spike-risk for your condition.</p>
+      <div class="drop" id="plateDrop">
+        <img id="platePrev" class="preview" alt="Meal photo" hidden>
+        <div class="row" style="justify-content:center">
+          <label class="btn primary" for="plateCam">Take photo</label>
+          <label class="btn" for="plateFile">Choose image</label>
+        </div>
+        <input type="file" id="plateCam" accept="image/*" capture="environment">
+        <input type="file" id="plateFile" accept="image/jpeg,image/png,image/webp,image/gif">
+        <span class="sub" style="font-size:13px">or drop an image here</span>
+      </div>
+      <label class="fld">What's on the plate? (optional, improves accuracy)
+        <input type="text" id="plateHint" placeholder="e.g. chicken biryani, raita, 1 roti">
+      </label>
+      <div class="row"><button class="primary" id="plateGo" disabled>Analyze meal</button><button class="ghost" id="plateStop" hidden>Stop</button></div>
+      <div class="status" id="plateStatus"></div>
+      <div class="banner" id="aiSetup" hidden></div>
+    </div>
+    <div class="panel" id="plateResult" hidden></div>
+    <div class="panel">
+      <h3>No photo? Type what you ate</h3>
+      <p class="sub">Type the foods, for example "2 roti, 1 cup daal, salad". Leave carbs and sodium empty and the app estimates them. If you know the numbers, enter them to log directly.</p>
+      <div class="row">
+        <label class="fld" style="flex-basis:100%">What did you eat?<input type="text" id="mName" placeholder="e.g. 2 roti, 1 cup daal, salad" enterkeyhint="go"></label>
+        <label class="fld">Carbs (g)<input type="number" id="mCarbs" min="0" inputmode="decimal"></label>
+        <label class="fld">Sodium (mg)<input type="number" id="mSod" min="0" inputmode="decimal"></label>
+        <label class="fld">Glycemic load<input type="number" id="mGL" min="0" inputmode="decimal" placeholder="optional"></label>
+      </div>
+      <div class="row"><button class="primary" id="mAdd">Analyze meal</button></div>
+      <div class="status" id="mStatus" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- PULSE -->
+  <section class="view" id="v-pulse" hidden>
+    <div class="panel">
+      <h2>Pulse-Check Vision</h2>
+      <p class="sub">Heart rate from a short camera video, using photoplethysmography (PPG): tiny colour changes in skin as blood pulses.</p>
+      <div class="seg" role="group" aria-label="Scan mode">
+        <button id="modeFinger" aria-pressed="true">Fingertip (more accurate)</button>
+        <button id="modeFace" aria-pressed="false">Face</button>
+      </div>
+      <ol class="steps" id="pulseHow"></ol>
+      <div class="drop">
+        <div class="row" style="justify-content:center">
+          <label class="btn primary" for="pulseCam" id="pulseCamLbl">Record 20-second video</label>
+          <label class="btn" for="pulseFile">Choose video</label>
+        </div>
+        <input type="file" id="pulseCam" accept="video/*" capture="environment">
+        <input type="file" id="pulseFile" accept="video/*">
+      </div>
+      <div class="status" id="pulseStatus"></div>
+    </div>
+    <div class="panel" id="pulseResult" hidden></div>
+    <div class="panel">
+      <h3>About blood pressure from the camera</h3>
+      <p class="sub">Camera-only blood pressure estimates are still research-grade and can be off by a wide margin, so this app does not show one. For blood pressure trends, log readings from a validated cuff under Readings; the app charts them and uses them in alerts and your score.</p>
+    </div>
+  </section>
+
+  <!-- LABEL -->
+  <section class="view" id="v-label" hidden>
+    <div class="panel">
+      <h2>Label scanner</h2>
+      <p class="sub">Photograph a nutrition label or a medicine box/bottle. The app reads it and flags hidden sodium, added sugar, and common food interactions.</p>
+      <div class="drop" id="labelDrop">
+        <img id="labelPrev" class="preview" alt="Label photo" hidden>
+        <div class="row" style="justify-content:center">
+          <label class="btn primary" for="labelCam">Take photo</label>
+          <label class="btn" for="labelFile">Choose image</label>
+        </div>
+        <input type="file" id="labelCam" accept="image/*" capture="environment">
+        <input type="file" id="labelFile" accept="image/jpeg,image/png,image/webp,image/gif">
+      </div>
+      <div class="row"><button class="primary" id="labelGo" disabled>Read label</button></div>
+      <div class="status" id="labelStatus"></div>
+    </div>
+    <div class="panel" id="labelResult" hidden></div>
+  </section>
+
+  <!-- STEPS -->
+  <section class="view" id="v-steps" hidden>
+    <div class="panel">
+      <h2>Kinetic Step Engine</h2>
+      <p class="sub">Steps are tied to your meals: a short walk soon after eating helps blunt the glucose rise, and regular movement through the day supports healthy blood pressure.</p>
+      <div class="grid2" id="stepStats"></div>
+      <div class="lbl-row"><span>Today vs goal</span><b id="stepPct"></b></div>
+      <div class="meter"><i id="stepBar" style="width:0"></i></div>
+    </div>
+    <div class="panel" id="motionPanel">
+      <h3>Live step counter</h3>
+      <p class="sub">Counts steps with your phone's motion sensor (accelerometer). Hold the phone or keep it in a front pocket, and keep this screen open.</p>
+      <div class="row"><span class="timer" id="liveSteps">0</span><span class="sub">steps counted</span></div>
+      <div class="row"><button class="primary" id="motionStart">Start counting</button><button id="motionStop" disabled>Stop and add to today</button></div>
+      <p class="status" id="motionStatus"></p>
+    </div>
+    <div class="panel">
+      <h3>Walk timer</h3>
+      <div class="timer" id="timer">00:00</div>
+      <div class="row" id="walkLiveRow" hidden><span class="big" id="walkLive">0</span><span class="sub">steps this walk (motion sensor)</span></div>
+      <div class="row">
+        <button class="primary" id="walkStart">Start walk</button>
+        <button id="walkStop" disabled>Finish</button>
+      </div>
+      <p class="sub" id="walkNote">Tip: keep this page open while you walk. Steps are counted by the motion sensor where your phone allows it.</p>
+      <div class="row" id="walkSave" hidden>
+        <label class="fld">Steps for this walk<input type="number" id="walkSteps" min="0"></label>
+        <button class="primary" id="walkSaveBtn">Save walk</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Add steps from your phone's health app</h3>
+      <div class="row">
+        <label class="fld">Date<input type="text" id="sDate" placeholder="YYYY-MM-DD"></label>
+        <label class="fld">Total steps that day<input type="number" id="sCount" min="0"></label>
+        <button id="sAdd" style="align-self:flex-end">Save</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Last 7 days</h3>
+      <div id="stepChart"></div>
+    </div>
+  </section>
+
+  <!-- LOG -->
+  <section class="view" id="v-log" hidden>
+    <div class="panel">
+      <h2>Log a reading</h2>
+      <div class="row">
+        <label class="fld">Glucose (<span class="gu">mg/dL</span>)<input type="number" id="gVal" step="0.1" min="0"></label>
+        <label class="fld">When<select id="gCtx"><option value="fasting">Fasting</option><option value="before">Before meal</option><option value="after">1–2 h after meal</option><option value="random">Random</option></select></label>
+        <button id="gAdd" style="align-self:flex-end">Add glucose</button>
+      </div>
+      <div class="row">
+        <label class="fld">Systolic (mmHg)<input type="number" id="bSys" min="0"></label>
+        <label class="fld">Diastolic (mmHg)<input type="number" id="bDia" min="0"></label>
+        <label class="fld">Pulse (bpm)<input type="number" id="bPul" min="0" placeholder="optional"></label>
+        <button id="bAdd" style="align-self:flex-end">Add BP</button>
+      </div>
+      <div class="status" id="logStatus"></div>
+    </div>
+    <div class="panel"><h3>Glucose trend</h3><div id="gChart"></div></div>
+    <div class="panel"><h3>Blood pressure trend</h3><div id="bChart"></div></div>
+    <div class="panel"><h3>History</h3><div class="tbl" id="history"></div></div>
+    <div class="panel">
+      <h3>Settings</h3>
+      <div class="row">
+        <label class="fld">Managing<select id="setCond"><option value="both">Diabetes + Hypertension</option><option value="diabetes">Diabetes</option><option value="hypertension">Hypertension</option></select></label>
+        <label class="fld">Glucose unit<select id="setUnit"><option value="mg">mg/dL</option><option value="mmol">mmol/L</option></select></label>
+        <label class="fld">Daily step goal<input type="number" id="setGoal" min="1000" step="500"></label>
+        <label class="fld">Daily sodium limit (mg)<input type="number" id="setSod" min="500" step="100"></label>
+      </div>
+      <div class="row"><button id="setSave">Save settings</button><span class="status" id="syncNote"></span></div>
+    </div>
+  </section>
+
+  <p class="foot">HypoDiabetic Monitor gives estimates to support everyday habits. It is not a medical device and does not replace your glucometer, BP cuff, doctor or pharmacist. If glucose is below 70 mg/dL with symptoms, or BP is 180/120 or higher, act on your care plan or seek urgent care. <a href="privacy.html">Privacy policy</a></p>
+</div>
+
+<script>
+(() => {
+"use strict";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+const dkey = (t) => { const d = new Date(t); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); };
+const today = () => dkey(Date.now());
+const HOUR = 3600e3, DAY = 86400e3;
+let LOC = undefined;
+const fmtTime = (t) => new Date(t).toLocaleTimeString(LOC, {hour:"2-digit", minute:"2-digit"});
+const fmtDT = (t) => new Date(t).toLocaleString(LOC, {month:"short", day:"numeric", hour:"2-digit", minute:"2-digit"});
+const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+
+/* ---------- State ---------- */
+const LS_KEY = "glucovision.v1";
+const defaults = () => ({ meals:[], glucose:[], bp:[], hr:[], walks:[], labels:[], steps:{},
+  settings:{ condition:"both", unit:"mg", stepGoal:7000, sodiumLimit:2000 } });
+
+function exampleState(){
+  const s = defaults(), now = Date.now();
+  const E = {example:true};
+  s.meals.push({id:uid(), t: now - 50*60e3, name:"Chicken biryani with raita", carbs:78, gl:34, sodium:1180, sugar:4, verdict:"spike-risk", items:[{name:"Chicken biryani",portion:"1.5 cups",carbs:70},{name:"Raita",portion:"½ cup",carbs:8}], ...E});
+  s.meals.push({id:uid(), t: now - 6*HOUR, name:"Eggs, whole-wheat toast, tea", carbs:32, gl:12, sodium:520, sugar:3, verdict:"moderate", items:[], ...E});
+  const g = [[128,"fasting",6],[176,"after",30],[134,"fasting",54],[162,"after",78],[121,"fasting",102],[188,"after",126],[118,"fasting",150]];
+  g.forEach(([v,ctx,h]) => s.glucose.push({id:uid(), t: now - h*HOUR, v, ctx, ...E}));
+  const b = [[138,88,10],[142,90,34],[131,84,58],[136,86,82],[128,82,106],[133,85,130],[129,83,154]];
+  b.forEach(([sys,dia,h]) => s.bp.push({id:uid(), t: now - h*HOUR, sys, dia, ...E}));
+  s.hr.push({id:uid(), t: now - 3*HOUR, bpm:74, quality:"good", mode:"finger", ...E});
+  const st = [6200,4100,8300,5600,7400,3900];
+  st.forEach((n,i) => { s.steps[dkey(now - (6-i)*DAY)] = {n, example:true}; });
+  s.steps[today()] = {n:2850, example:true};
+  s.walks.push({id:uid(), t: now - 25*HOUR, mins:12, steps:1300, postMeal:true, ...E});
+  return s;
+}
+
+let S = null;
+function loadLocal(){ try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r) : null; } catch { return null; } }
+function saveLocal(){ try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch {} }
+function normalize(x){ const d = defaults(); const o = Object.assign(d, x || {}); o.settings = Object.assign(defaults().settings, (x && x.settings) || {}); return o; }
+function prune(){ for (const k of ["meals","glucose","bp","hr","walks","labels"]) if (S[k].length > 400) S[k] = S[k].slice(-400); }
+const hasExamples = () => ["meals","glucose","bp","hr","walks"].some(k => S[k].some(e => e.example)) || Object.values(S.steps).some(e => e && e.example);
+function clearExamples(){
+  for (const k of ["meals","glucose","bp","hr","walks","labels"]) S[k] = S[k].filter(e => !e.example);
+  for (const d of Object.keys(S.steps)) if (S.steps[d] && S.steps[d].example) delete S.steps[d];
+}
+function stepsOn(d){ const e = S.steps[d]; return e ? e.n : 0; }
+
+/* db sync (private per viewer), localStorage as cache/fallback */
+let dbRef = null, saving = false, dirty = false, saveTimer = null;
+function persist(){
+  prune(); saveLocal();
+  if (!dbRef) return;
+  dirty = true; clearTimeout(saveTimer); saveTimer = setTimeout(flush, 700);
+}
+async function flush(){
+  if (!dbRef || saving || !dirty) return;
+  saving = true; dirty = false;
+  try { await dbRef.set(JSON.parse(JSON.stringify(S))); $("#syncNote").textContent = "Saved to your account"; $("#syncNote").className = "status"; }
+  catch (e) { $("#syncNote").textContent = e && e.code === "quota_exceeded" ? "Storage is full. Older entries need clearing." : "Saved on this device only."; }
+  finally { saving = false; if (dirty) flush(); }
+}
+function commit(){ if (hasExamples() && S._userActed !== true) { /* keep examples until first own entry */ } persist(); render(); }
+function userEntry(){ if (hasExamples()) clearExamples(); S._userActed = true; }
+
+/* ---------- Clinical-ish rules ---------- */
+const toUnit = (mg) => S.settings.unit === "mmol" ? (mg/18).toFixed(1) : Math.round(mg);
+const fromUnit = (v) => S.settings.unit === "mmol" ? v*18 : v;
+const unitLbl = () => S.settings.unit === "mmol" ? "mmol/L" : "mg/dL";
+const wantsG = () => S.settings.condition !== "hypertension";
+const wantsB = () => S.settings.condition !== "diabetes";
+function glClass(gl){ return gl == null ? null : gl >= 20 ? "high" : gl >= 11 ? "medium" : "low"; }
+function mealVerdict(m){
+  const g = glClass(m.gl ?? (m.carbs != null ? m.carbs*0.45 : null));
+  const highNa = (m.sodium || 0) > S.settings.sodiumLimit * 0.4;
+  if ((wantsG() && g === "high") || (wantsB() && highNa && (m.sodium||0) > S.settings.sodiumLimit*0.55)) return "spike-risk";
+  if ((wantsG() && g === "medium") || (wantsB() && highNa)) return "moderate";
+  return "safe";
+}
+function bpClass(s,d){
+  if (s >= 180 || d >= 120) return ["bad","Crisis range"];
+  if (s >= 140 || d >= 90) return ["bad","Stage 2"];
+  if (s >= 130 || d >= 80) return ["warn","Stage 1"];
+  if (s >= 120) return ["warn","Elevated"];
+  return ["ok","Normal"];
+}
+function gClass(v, ctx){
+  if (v < 54) return ["bad","Very low"];
+  if (v < 70) return ["bad","Low"];
+  if (ctx === "after") return v > 180 ? ["warn","Above target"] : ["ok","In target"];
+  if (ctx === "fasting" || ctx === "before") return v > 130 ? ["warn","Above target"] : ["ok","In target"];
+  return v > 180 ? ["warn","High"] : ["ok","In range"];
+}
+const vChip = (v) => v === "spike-risk" ? `<span class="chip bad">Spike-risk</span>` : v === "moderate" ? `<span class="chip warn">Moderate</span>` : `<span class="chip ok">Safe</span>`;
+
+function todayTotals(){
+  const k = today(); const meals = S.meals.filter(m => dkey(m.t) === k);
+  return { meals, carbs: meals.reduce((a,m)=>a+(m.carbs||0),0), sodium: meals.reduce((a,m)=>a+(m.sodium||0),0),
+    sugar: meals.reduce((a,m)=>a+(m.sugar||0),0), steps: stepsOn(k) };
+}
+const last = (arr) => arr.length ? arr.reduce((a,b)=> b.t > a.t ? b : a) : null;
+
+function computeAlerts(){
+  const out = [], now = Date.now(), T = todayTotals();
+  const lg = last(S.glucose), lb = last(S.bp);
+  if (lg && now - lg.t < 6*HOUR && lg.v < 70) out.push(["bad","Low glucose: " + toUnit(lg.v) + " " + unitLbl(), "Treat a low now with 15 g fast-acting carbs and recheck in 15 minutes. Don't go for a walk until it's back above 70 mg/dL."]);
+  if (lb && now - lb.t < 12*HOUR && (lb.sys >= 180 || lb.dia >= 120)) out.push(["bad","Very high BP: " + lb.sys + "/" + lb.dia, "Rest 5 minutes and measure again. If it's still this high, or you have chest pain, headache or vision changes, seek urgent care."]);
+  const recentMeal = S.meals.filter(m => now - m.t < 2*HOUR).sort((a,b)=>b.t-a.t)[0];
+  if (wantsG() && recentMeal && (glClass(recentMeal.gl) === "high" || recentMeal.verdict === "spike-risk")) {
+    const walked = S.walks.some(w => w.t > recentMeal.t);
+    if (!walked) out.push(["warn","Spike risk after " + recentMeal.name.toLowerCase(), "High glycemic load (" + Math.round(recentMeal.gl ?? 0) + ") and no walk logged since. A 10–15 minute walk now can help lower the after-meal rise."]);
+  }
+  if (wantsB() && T.sodium > S.settings.sodiumLimit) out.push(["warn","Sodium over today's limit", Math.round(T.sodium) + " mg logged vs " + S.settings.sodiumLimit + " mg limit. Choose low-salt options for the rest of the day and drink water."]);
+  else if (wantsB() && T.sodium > S.settings.sodiumLimit*0.75) out.push(["warn","Sodium close to limit", Math.round(T.sodium) + " of " + S.settings.sodiumLimit + " mg used today."]);
+  const h = new Date().getHours();
+  if (h >= 17 && T.steps < S.settings.stepGoal*0.5) out.push(["warn","Low movement today", T.steps.toLocaleString() + " steps so far. Low activity plus " + (T.carbs > 150 ? "a high-carb day" : "evening meals") + " raises tomorrow's fasting reading risk."]);
+  const wk = S.bp.filter(b => now - b.t < 7*DAY);
+  if (wantsB() && wk.length >= 3) { const avg = wk.reduce((a,b)=>a+b.sys,0)/wk.length; if (avg >= 135) out.push(["warn","7-day BP average is high", "Average systolic " + Math.round(avg) + " mmHg over " + wk.length + " readings. Share this trend with your doctor."]); }
+  const ag = S.glucose.filter(g => now - g.t < 7*DAY && g.ctx === "after");
+  if (wantsG() && ag.length >= 2 && ag.filter(g=>g.v>180).length >= 2) out.push(["warn","Repeated post-meal highs", ag.filter(g=>g.v>180).length + " after-meal readings above 180 mg/dL this week. Plate scans plus post-meal walks target exactly this."]);
+  if (!out.length) out.push(["ok","All clear right now","No spike or surge patterns in your recent meals, steps and readings."]);
+  return out;
+}
+
+function vesselScore(){
+  const now = Date.now(); let stepsSum = 0;
+  for (let i=0;i<7;i++) stepsSum += stepsOn(dkey(now - i*DAY));
+  const stepPart = Math.min(1, (stepsSum/7) / S.settings.stepGoal);
+  const days = {}; S.meals.filter(m => now - m.t < 7*DAY).forEach(m => { const k=dkey(m.t); days[k]=(days[k]||0)+(m.sodium||0); });
+  const dv = Object.values(days); const sodPart = dv.length ? dv.filter(v => v <= S.settings.sodiumLimit).length / dv.length : 0.5;
+  const wb = S.bp.filter(b => now - b.t < 7*DAY); const bpPart = wb.length ? wb.filter(b => b.sys < 130 && b.dia < 80).length / wb.length : 0.5;
+  return { total: Math.round(stepPart*40 + sodPart*30 + bpPart*30), stepPart, sodPart, bpPart, avgSteps: Math.round(stepsSum/7), sodDays: dv.length, bpN: wb.length };
+}
+
+/* ---------- Charts ---------- */
+function lineChart(series, opts){
+  // series: [{pts:[{t,v}], color, label}], bands: [{lo,hi}]
+  const W = 640, H = 200, P = {l:38, r:12, t:12, b:24};
+  const all = series.flatMap(s => s.pts);
+  if (!all.length) return `<p class="sub">No readings yet.</p>`;
+  const tmin = Math.min(...all.map(p=>p.t)), tmax = Math.max(...all.map(p=>p.t), tmin + HOUR);
+  let vmin = Math.min(...all.map(p=>p.v), opts.floor ?? Infinity), vmax = Math.max(...all.map(p=>p.v), opts.ceil ?? -Infinity);
+  const pad = (vmax - vmin) * 0.12 || 10; vmin = Math.floor((vmin - pad)/10)*10; vmax = Math.ceil((vmax + pad)/10)*10;
+  const x = t => P.l + (t - tmin)/(tmax - tmin) * (W - P.l - P.r);
+  const y = v => H - P.b - (v - vmin)/(vmax - vmin) * (H - P.t - P.b);
+  let g = "";
+  const ticks = 4; for (let i=0;i<=ticks;i++){ const v = vmin + (vmax-vmin)*i/ticks; g += `<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${P.l-6}" y="${y(v)+3}" text-anchor="end">${opts.fmt ? opts.fmt(v) : Math.round(v)}</text>`; }
+  (opts.bands||[]).forEach(b => { const lo = Math.max(b.lo, vmin), hi = Math.min(b.hi, vmax); if (hi > lo) g = `<rect x="${P.l}" width="${W-P.l-P.r}" y="${y(hi)}" height="${y(lo)-y(hi)}" fill="var(--ok-soft)"/>` + g; });
+  g += `<text x="${P.l}" y="${H-6}">${new Date(tmin).toLocaleDateString(LOC, {month:"short",day:"numeric"})}</text><text x="${W-P.r}" y="${H-6}" text-anchor="end">${new Date(tmax).toLocaleDateString(LOC, {month:"short",day:"numeric"})}</text>`;
+  series.forEach(s => {
+    const pts = [...s.pts].sort((a,b)=>a.t-b.t);
+    g += `<polyline fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" points="${pts.map(p=>x(p.t).toFixed(1)+","+y(p.v).toFixed(1)).join(" ")}"/>`;
+    pts.forEach((p,i) => g += `<circle cx="${x(p.t).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="${i===pts.length-1?4.5:2.5}" fill="${s.color}"/>`);
+  });
+  const legend = series.length > 1 ? `<div class="row" style="font-size:12px;color:var(--muted)">${series.map(s=>`<span style="display:inline-flex;align-items:center;gap:6px"><i style="width:10px;height:3px;background:${s.color};display:inline-block"></i>${s.label}</span>`).join("")}<span style="display:inline-flex;align-items:center;gap:6px"><i style="width:10px;height:10px;background:var(--ok-soft);display:inline-block"></i>target zone</span></div>` : `<div class="row" style="font-size:12px;color:var(--muted)"><span style="display:inline-flex;align-items:center;gap:6px"><i style="width:10px;height:10px;background:var(--ok-soft);display:inline-block"></i>target zone</span></div>`;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${opts.aria}">${g}</svg>${legend}`;
+}
+function stepChart(){
+  const W = 640, H = 190, P = {l:44, r:10, t:14, b:26}, now = Date.now();
+  const days = []; for (let i=6;i>=0;i--){ const t = now - i*DAY; days.push({k:dkey(t), n:stepsOn(dkey(t)), lbl:new Date(t).toLocaleDateString(LOC, {weekday:"short"})}); }
+  const goal = S.settings.stepGoal, vmax = Math.ceil(Math.max(goal, ...days.map(d=>d.n)) * 1.1 / 1000) * 1000;
+  const y = v => H - P.b - v/vmax*(H-P.t-P.b), bw = (W-P.l-P.r)/7;
+  let g = "";
+  for (let i=0;i<=4;i++){ const v = vmax*i/4; g += `<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${P.l-6}" y="${y(v)+3}" text-anchor="end">${v>=1000?(v/1000).toFixed(v%1000?1:0)+"k":v}</text>`; }
+  days.forEach((d,i) => { const x = P.l + i*bw + bw*0.18, w = bw*0.64, h = H-P.b-y(d.n);
+    g += `<rect x="${x}" y="${y(d.n)}" width="${w}" height="${Math.max(h,0)}" rx="4" fill="${d.n>=goal?"var(--accent)":"var(--surface-2)"}" stroke="var(--accent)" stroke-width="${d.n>=goal?0:1}"/>`;
+    g += `<text x="${x+w/2}" y="${H-8}" text-anchor="middle">${d.lbl}</text>`;
+    if (d.n) g += `<text x="${x+w/2}" y="${y(d.n)-4}" text-anchor="middle" style="fill:var(--ink)">${(d.n/1000).toFixed(1)}k</text>`; });
+  g += `<line x1="${P.l}" x2="${W-P.r}" y1="${y(goal)}" y2="${y(goal)}" stroke="var(--accent)" stroke-dasharray="5 4"/><text x="${W-P.r}" y="${y(goal)-4}" text-anchor="end" style="fill:var(--accent)">goal ${goal.toLocaleString()}</text>`;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Steps, last 7 days">${g}</svg>`;
+}
+
+/* ---------- Render ---------- */
+function render(){
+  $("#exampleBanner").hidden = !hasExamples();
+  const condTxt = {both:"Diabetes + Hypertension", diabetes:"Diabetes", hypertension:"Hypertension"}[S.settings.condition];
+  $("#condBadge").textContent = condTxt;
+  document.querySelectorAll(".gu").forEach(e => e.textContent = unitLbl());
+  renderToday(); renderSteps(); renderLog();
+}
+function renderToday(){
+  const T = todayTotals(), lg = last(S.glucose), lb = last(S.bp), lh = last(S.hr);
+  $("#alerts").innerHTML = computeAlerts().map(([lv,t,d]) => `<div class="alert ${lv}"><div class="bar"></div><div class="body"><div class="t">${esc(t)}</div><div class="d">${esc(d)}</div></div></div>`).join("");
+  const stats = [];
+  if (wantsG()) stats.push(`<div class="stat g"><span class="k">Carbs</span><span class="v">${Math.round(T.carbs)}<small>g</small></span><span class="n">${T.meals.length} meal${T.meals.length===1?"":"s"} logged</span></div>`);
+  if (wantsB()) stats.push(`<div class="stat c"><span class="k">Sodium</span><span class="v">${Math.round(T.sodium).toLocaleString()}<small>mg</small></span><span class="n">limit ${S.settings.sodiumLimit.toLocaleString()} mg</span></div>`);
+  stats.push(`<div class="stat"><span class="k">Steps</span><span class="v">${T.steps.toLocaleString()}</span><span class="n">goal ${S.settings.stepGoal.toLocaleString()}</span></div>`);
+  if (wantsG()) stats.push(`<div class="stat g"><span class="k">Last glucose</span><span class="v">${lg ? toUnit(lg.v) : "–"}<small>${unitLbl()}</small></span><span class="n">${lg ? esc(gClass(lg.v,lg.ctx)[1]) + " · " + fmtDT(lg.t) : "none logged"}</span></div>`);
+  if (wantsB()) stats.push(`<div class="stat c"><span class="k">Last BP</span><span class="v">${lb ? lb.sys+"/"+lb.dia : "–"}<small>mmHg</small></span><span class="n">${lb ? bpClass(lb.sys,lb.dia)[1] + " · " + fmtDT(lb.t) : "none logged"}</span></div>`);
+  stats.push(`<div class="stat"><span class="k">Heart rate</span><span class="v">${lh ? lh.bpm : "–"}<small>bpm</small></span><span class="n">${lh ? "camera scan · " + fmtDT(lh.t) : "run a pulse scan"}</span></div>`);
+  $("#todayStats").innerHTML = stats.join("");
+
+  const sc = vesselScore(), C = 2*Math.PI*50, col = sc.total >= 70 ? "var(--ok)" : sc.total >= 45 ? "var(--warn)" : "var(--bad)";
+  $("#ring").innerHTML = `<circle cx="60" cy="60" r="50" fill="none" stroke="var(--surface-2)" stroke-width="11"/><circle cx="60" cy="60" r="50" fill="none" stroke="${col}" stroke-width="11" stroke-linecap="round" stroke-dasharray="${(C*sc.total/100).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 60 60)"/><text x="60" y="66" text-anchor="middle" font-size="30" font-weight="500" fill="var(--ink)">${sc.total}</text><text x="60" y="84" text-anchor="middle" font-size="10" fill="var(--muted)">/ 100</text>`;
+  const part = (lbl, v, max, note, cls) => `<div><div class="lbl-row"><span>${lbl}</span><b>${Math.round(v*max)}/${max}</b></div><div class="meter ${cls}"><i style="width:${Math.round(v*100)}%"></i></div><div class="lbl-row"><span>${note}</span></div></div>`;
+  $("#scoreParts").innerHTML = part("Movement", sc.stepPart, 40, "avg " + sc.avgSteps.toLocaleString() + " steps/day", "") + part("Sodium", sc.sodPart, 30, sc.sodDays ? sc.sodDays + " day(s) with meals logged" : "no meals logged (neutral)", "c") + part("BP in target", sc.bpPart, 30, sc.bpN ? sc.bpN + " reading(s) this week" : "no readings (neutral)", "c");
+
+  // Walk window
+  const now = Date.now(), m = S.meals.filter(x => now - x.t < 90*60e3).sort((a,b)=>b.t-a.t)[0];
+  const walked = m && S.walks.some(w => w.t > m.t);
+  if (m && !walked && wantsG()) {
+    const mins = Math.round((now - m.t)/60e3);
+    $("#walkCard").innerHTML = `<div class="panel" style="border-color:var(--gluco)"><div class="row" style="justify-content:space-between"><h2>Post-meal walk window is open</h2>${vChip(m.verdict)}</div><p class="sub">You logged <b>${esc(m.name)}</b> ${mins} min ago. After-meal glucose usually peaks 30–90 minutes after eating, so a 10–15 minute walk now is well timed.</p><div class="row"><a class="btn primary" href="#steps" id="goWalk">Start a 10-minute walk</a></div></div>`;
+    $("#goWalk").onclick = () => { location.hash = "steps"; setTimeout(startWalk, 50); };
+  } else $("#walkCard").innerHTML = "";
+}
+function renderSteps(){
+  const n = stepsOn(today()), goal = S.settings.stepGoal, now = Date.now();
+  const wk = S.walks.filter(w => now - w.t < 7*DAY), post = wk.filter(w => w.postMeal).length;
+  let sum = 0; for (let i=0;i<7;i++) sum += stepsOn(dkey(now - i*DAY));
+  $("#stepStats").innerHTML = `<div class="stat"><span class="k">Today</span><span class="v">${n.toLocaleString()}</span></div><div class="stat"><span class="k">7-day average</span><span class="v">${Math.round(sum/7).toLocaleString()}</span></div><div class="stat g"><span class="k">Post-meal walks</span><span class="v">${post}<small>this week</small></span></div>`;
+  $("#stepPct").textContent = Math.round(n/goal*100) + "%";
+  $("#stepBar").style.width = Math.min(100, n/goal*100) + "%";
+  $("#stepChart").innerHTML = stepChart();
+  if (!$("#sDate").value) $("#sDate").value = today();
+}
+function renderLog(){
+  $("#gChart").innerHTML = lineChart([{pts:S.glucose.map(g=>({t:g.t, v:g.v})), color:"var(--gluco)", label:"Glucose"}], {aria:"Glucose trend", bands:[{lo:70, hi:180}], floor:60, ceil:200, fmt: v => S.settings.unit==="mmol" ? (v/18).toFixed(1) : Math.round(v)});
+  $("#bChart").innerHTML = lineChart([{pts:S.bp.map(b=>({t:b.t,v:b.sys})), color:"var(--cardio)", label:"Systolic"},{pts:S.bp.map(b=>({t:b.t,v:b.dia})), color:"var(--accent)", label:"Diastolic"}], {aria:"Blood pressure trend", bands:[{lo:60, hi:80},{lo:90,hi:130}], floor:60, ceil:150});
+  const rows = [
+    ...S.glucose.map(g => ({t:g.t, type:"Glucose", val: toUnit(g.v) + " " + unitLbl(), note: ({fasting:"fasting",before:"before meal",after:"after meal",random:"random"})[g.ctx], chip: gClass(g.v,g.ctx), k:"glucose", id:g.id})),
+    ...S.bp.map(b => ({t:b.t, type:"BP", val: b.sys + "/" + b.dia + " mmHg", note: b.pulse ? b.pulse + " bpm" : "", chip: bpClass(b.sys,b.dia), k:"bp", id:b.id})),
+    ...S.hr.map(h => ({t:h.t, type:"Heart rate", val: h.bpm + " bpm", note: "camera, " + h.mode, chip: [h.quality==="good"?"ok":"warn", h.quality + " signal"], k:"hr", id:h.id})),
+    ...S.meals.map(m => ({t:m.t, type:"Meal", val: Math.round(m.carbs||0) + " g carbs · " + Math.round(m.sodium||0) + " mg Na", note: m.name, chip: m.verdict==="spike-risk"?["bad","Spike-risk"]:m.verdict==="moderate"?["warn","Moderate"]:["ok","Safe"], k:"meals", id:m.id})),
+    ...S.walks.map(w => ({t:w.t, type:"Walk", val: w.mins + " min" + (w.steps ? " · " + w.steps.toLocaleString() + " steps" : ""), note: w.postMeal ? "post-meal" : "", chip:["ok","Walk"], k:"walks", id:w.id})),
+  ].sort((a,b)=>b.t-a.t).slice(0,60);
+  $("#history").innerHTML = rows.length ? `<table><thead><tr><th>When</th><th>Type</th><th>Value</th><th>Status</th><th>Note</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td>${fmtDT(r.t)}</td><td>${r.type}</td><td class="num">${esc(r.val)}</td><td><span class="chip ${r.chip[0]}">${esc(r.chip[1])}</span></td><td>${esc(r.note)}</td><td><button class="sm ghost" data-del="${r.k}:${r.id}" aria-label="Delete entry">Delete</button></td></tr>`).join("")}</tbody></table>` : `<p class="sub">Nothing logged yet.</p>`;
+  $("#setCond").value = S.settings.condition; $("#setUnit").value = S.settings.unit;
+  $("#setGoal").value = S.settings.stepGoal; $("#setSod").value = S.settings.sodiumLimit;
+}
+$("#history").addEventListener("click", e => { const b = e.target.closest("[data-del]"); if (!b) return; const [k,id] = b.dataset.del.split(":"); S[k] = S[k].filter(x => x.id !== id); commit(); });
+
+/* ---------- Routing ---------- */
+const VIEWS = ["today","plate","pulse","label","steps","log"];
+function route(){ const h = (location.hash || "#today").slice(1); const v = VIEWS.includes(h) ? h : "today";
+  VIEWS.forEach(x => { $("#v-"+x).hidden = x !== v; });
+  document.querySelectorAll("nav.tabs a").forEach(a => { if (a.dataset.v === v) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
+  if (v === "today") renderToday();
+}
+window.addEventListener("hashchange", route);
+
+/* ---------- AI backend (Netlify Function) ---------- */
+let sample = true, imgOK = true;
+async function shrinkImage(file){
+  let bmp;
+  try { bmp = await createImageBitmap(file); } catch { throw {code:"image_rejected"}; }
+  const max = 1280, sc = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas"); c.width = Math.round(bmp.width*sc); c.height = Math.round(bmp.height*sc);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.85));
+  if (!blob) throw {code:"image_rejected"};
+  return await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = () => rej({code:"image_rejected"}); fr.readAsDataURL(blob); });
+}
+function parseJSONLoose(t){
+  try { return JSON.parse(t); } catch {}
+  const f = t.match(/```(?:json)?\s*([\s\S]*?)```/); if (f) { try { return JSON.parse(f[1]); } catch {} }
+  const a = t.search(/[\[{]/), b = Math.max(t.lastIndexOf("}"), t.lastIndexOf("]"));
+  if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b+1)); } catch {} }
+  throw {code:"invalid_json"};
+}
+async function aiJSON(task, extra, file, signal){
+  const image = await shrinkImage(file);
+  let r;
+  try {
+    r = await fetch("/.netlify/functions/analyze", {method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify(Object.assign({task, image}, extra)), signal});
+  } catch (e) { throw {code: e && e.name === "AbortError" ? "cancelled" : "offline"}; }
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw {code: d.error || (r.status === 404 ? "not_found" : "upstream_error")};
+  return parseJSONLoose(String(d.text || ""));
+}
+const r404 = (c) => c === "not_found";
+function aiErr(e){
+  const c = e && e.code;
+  if (c === "not_granted" || c === "sampling_disabled" || c === "not_declared" || c === "images_unavailable" || c === "capability_disabled") return "Photo analysis isn't available here. Use the manual form below instead.";
+  if (c === "bad_api_key") return "AI scan isn't working: the API key on the server is wrong. In Netlify, check ANTHROPIC_API_KEY under Environment variables, then redeploy.";
+  if (c === "no_credit") return "AI scan isn't working: the AI account has no credit. Add credit at console.anthropic.com (Billing).";
+  if (c === "bad_model") return "AI scan isn't working: the model name on the server is wrong. Delete CLAUDE_MODEL in Netlify settings, then redeploy.";
+  if (c === "not_found") return "AI scan isn't set up: the server function wasn't deployed. Deploy the site from GitHub; drag-and-drop uploads skip it.";
+  if (c === "server_not_configured") return "AI scan isn't set up: add ANTHROPIC_API_KEY in Netlify (Site configuration, Environment variables), then redeploy.";
+  if (c === "offline") return "No internet connection. Connect and try again.";
+  if (c === "rate_limited") return "Too many scans in a short time. Wait a minute and try again.";
+  if (c === "image_rejected") return "That image couldn't be read. Try a JPEG or PNG under 20 MB.";
+  if (c === "refused") return "This photo couldn't be analyzed. Try a clearer photo of the food or label.";
+  if (c === "invalid_json") return "The result came back incomplete. Tap the button to try again.";
+  if (c === "cancelled") return "";
+  return "Analysis failed because of a connection problem. Try again.";
+}
+const condText = () => ({both:"type 2 diabetes and hypertension", diabetes:"diabetes", hypertension:"hypertension"})[S.settings.condition];
+
+/* Image pickers */
+function wirePicker(ids, prevId, onFile){
+  ids.forEach(id => $(id).addEventListener("change", e => { const f = e.target.files && e.target.files[0]; if (f) onFile(f); e.target.value = ""; }));
+}
+function wireDrop(el, onFile){
+  el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("over"); });
+  el.addEventListener("dragleave", () => el.classList.remove("over"));
+  el.addEventListener("drop", e => { e.preventDefault(); el.classList.remove("over"); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) onFile(f); });
+}
+let plateImg = null, labelImg = null, plateCtl = null;
+function setPreview(id, f){ const img = $(id); try { URL.revokeObjectURL(img.src); } catch {} img.src = URL.createObjectURL(f); img.hidden = false; }
+const onPlate = f => { plateImg = f; setPreview("#platePrev", f); $("#plateGo").disabled = false; $("#plateStatus").textContent = ""; };
+const onLabel = f => { labelImg = f; setPreview("#labelPrev", f); $("#labelGo").disabled = false; $("#labelStatus").textContent = ""; };
+wirePicker(["#plateCam","#plateFile"], "#platePrev", onPlate); wireDrop($("#plateDrop"), onPlate);
+wirePicker(["#labelCam","#labelFile"], "#labelPrev", onLabel); wireDrop($("#labelDrop"), onLabel);
+
+let lastPlate = null;
+$("#plateHint").addEventListener("input", () => { $("#plateGo").disabled = !(plateImg || $("#plateHint").value.trim()); });
+$("#plateGo").onclick = async () => {
+  if (!plateImg) { const h = $("#plateHint").value.trim(); if (h) analyzeTypedMeal(h, $("#plateStatus")); return; }
+  const st = $("#plateStatus");
+  if (!sample || !imgOK) { st.className = "status err"; st.textContent = "Photo analysis isn't available here. Use the manual form below instead."; return; }
+  $("#plateGo").disabled = true; $("#plateStop").hidden = false; st.className = "status"; st.innerHTML = `<span class="spin"></span> Analyzing your plate…`;
+  plateCtl = new AbortController();
+  const hint = $("#plateHint").value.trim();
+  const prompt = `You estimate nutrition from a meal photo for someone managing ${condText()}.
+${hint ? "The person says the plate contains: " + hint + "\n" : ""}Identify each food item, estimate its portion (grams or household measure), carbohydrate grams and sodium mg. Then estimate the whole meal's total carbs, glycemic load (GL, using typical glycemic index values for each food), sodium mg and added sugar g. Consider South Asian, East Asian and Western dishes.
+Reply with only JSON in this shape:
+{"meal_name":"short name","items":[{"name":"","portion":"","carbs_g":0,"sodium_mg":0}],"total_carbs_g":0,"glycemic_load":0,"sodium_mg":0,"added_sugar_g":0,"confidence":"low|medium|high","reason":"one sentence on the main glucose or blood-pressure driver","swap_tip":"one concrete swap that lowers GL or sodium"}
+If the image does not show food, reply {"not_food":true}.`;
+  try {
+    const r = await aiJSON("plate", {hint, condition: S.settings.condition, lang: LANG}, plateImg, plateCtl.signal);
+    if (!r || r.not_food) { st.className = "status err"; st.textContent = "No food found in this photo. Try again with the plate in view."; return; }
+    const m = { id:uid(), t:Date.now(), name: String(r.meal_name || hint || "Meal").slice(0,80),
+      carbs: num(r.total_carbs_g) ?? 0, gl: num(r.glycemic_load), sodium: num(r.sodium_mg) ?? 0, sugar: num(r.added_sugar_g) ?? 0,
+      items: (Array.isArray(r.items) ? r.items : []).slice(0,12).map(i => ({name:String(i.name||""), portion:String(i.portion||""), carbs:num(i.carbs_g)??0, sodium:num(i.sodium_mg)??0})),
+      confidence: String(r.confidence || "medium"), reason: String(r.reason || ""), tip: String(r.swap_tip || "") };
+    m.verdict = mealVerdict(m); lastPlate = m; st.textContent = ""; showPlate(m, false);
+  } catch (e) {
+    const msg = aiErr(e);
+    if (e && e.code === "cancelled") { st.textContent = ""; }
+    else if (hint) { await analyzeTypedMeal(hint, st, true); if (!$("#plateResult").hidden) { st.className = "status err"; st.textContent = msg + " Showing an estimate from what you typed instead."; } }
+    else { st.className = "status err"; st.textContent = msg + " Meanwhile, type what's on the plate in the box above and tap Analyze meal for an estimate from the built-in food list."; }
+  }
+  finally { $("#plateGo").disabled = false; $("#plateStop").hidden = true; }
+};
+$("#plateStop").onclick = () => plateCtl && plateCtl.abort();
+function showPlate(m, saved){
+  const glc = glClass(m.gl), el = $("#plateResult"); el.hidden = false;
+  const glChip = glc === "high" ? "bad" : glc === "medium" ? "warn" : "ok";
+  const naShare = Math.round((m.sodium||0) / S.settings.sodiumLimit * 100);
+  el.innerHTML = `<div class="verdict"><span class="big">${esc(m.name)}</span>${vChip(m.verdict)}<span class="chip mute">${esc(m.confidence)} confidence</span></div>
+  <div class="grid2">
+    <div class="stat g"><span class="k">Carbs</span><span class="v">${Math.round(m.carbs)}<small>g</small></span></div>
+    <div class="stat g"><span class="k">Glycemic load</span><span class="v">${m.gl != null ? Math.round(m.gl) : "–"}</span><span class="n"><span class="chip ${glChip}">${glc || "n/a"}</span></span></div>
+    <div class="stat c"><span class="k">Sodium</span><span class="v">${Math.round(m.sodium).toLocaleString()}<small>mg</small></span><span class="n">${naShare}% of daily limit</span></div>
+    <div class="stat"><span class="k">Added sugar</span><span class="v">${Math.round(m.sugar)}<small>g</small></span></div>
+  </div>
+  ${m.items.length ? `<ul class="items">${m.items.map(i => `<li><span>${esc(i.name)} <span style="color:var(--muted)">· ${esc(i.portion)}</span></span><span>${Math.round(i.carbs)} g · ${Math.round(i.sodium)} mg</span></li>`).join("")}</ul>` : ""}
+  ${m.reason ? `<p class="sub"><b>Why:</b> ${esc(m.reason)}</p>` : ""}
+  ${m.tip ? `<p class="sub"><b>Swap:</b> ${esc(m.tip)}</p>` : ""}
+  <p class="sub" style="font-size:12px">Estimates can be off by 20–30%. Use your meter for dosing decisions.</p>
+  <div class="row">${saved ? `<span class="chip ok">Logged</span><a class="btn primary" href="#steps" id="plWalk">Start post-meal walk</a>` : `<button class="primary" id="plSave">Log this meal</button><button class="ghost" id="plDiscard">Discard</button>`}</div>`;
+  if (!saved) {
+    $("#plSave").onclick = () => { userEntry(); S.meals.push(m); commit(); showPlate(m, true); };
+    $("#plDiscard").onclick = () => { el.hidden = true; };
+  } else $("#plWalk").onclick = () => setTimeout(startWalk, 50);
+}
+$("#mAdd").onclick = () => {
+  const carbs = num($("#mCarbs").value), sod = num($("#mSod").value), name = $("#mName").value.trim(), st = $("#mStatus");
+  if (carbs == null && sod == null) {
+    if (!name) { st.className = "status err"; st.textContent = "Type what you ate, for example: 2 roti, 1 cup daal."; return; }
+    analyzeTypedMeal(name, st); return;
+  }
+  userEntry();
+  const m = {id:uid(), t:Date.now(), name: name || "Meal", carbs: carbs ?? 0, sodium: sod ?? 0, gl: num($("#mGL").value) ?? (carbs != null ? Math.round(carbs*0.45) : null), sugar:0, items:[], confidence:"manual"};
+  m.verdict = mealVerdict(m); S.meals.push(m); commit();
+  ["#mName","#mCarbs","#mSod","#mGL"].forEach(i => $(i).value = "");
+  st.className = "status"; st.textContent = "Meal logged: " + m.name + " (" + m.verdict + ").";
+};
+$("#mName").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("#mAdd").click(); } });
+
+async function aiTextJSON(text){
+  let r;
+  try { r = await fetch("/.netlify/functions/analyze", {method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({task:"meal_text", text, condition: S.settings.condition, lang: LANG})}); }
+  catch { throw {code:"offline"}; }
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw {code: d.error || (r.status === 404 ? "not_found" : "upstream_error")};
+  return parseJSONLoose(String(d.text || ""));
+}
+/* ---------- Typed meal analysis ---------- */
+// When the user types what they ate (no photo, no numbers), ask the AI first;
+// if the AI is unavailable, estimate from a built-in list of common foods.
+// Values are per typical serving: carbs g, glycemic index, sodium mg, added sugar g.
+const FOODS = [
+  {k:["brown rice"], n:"Brown rice", p:"1 cup cooked", c:45, gi:68, na:5},
+  {k:["chicken fried rice","egg fried rice","fried rice","chao fan"], n:"Fried rice", p:"1 cup", c:45, gi:75, na:800},
+  {k:["chicken biryani","mutton biryani","beef biryani","biryani","biriyani"], n:"Biryani", p:"1 cup", c:45, gi:70, na:600},
+  {k:["pulao","pilau","pilaf"], n:"Pulao", p:"1 cup", c:45, gi:70, na:450},
+  {k:["braised pork rice","lu rou fan","滷肉飯"], n:"Braised pork rice", p:"1 bowl", c:60, gi:72, na:900},
+  {k:["congee","porridge","jook","粥"], n:"Rice congee", p:"1 bowl", c:30, gi:78, na:400},
+  {k:["rice","chawal","chaawal","白飯","飯"], n:"White rice", p:"1 cup cooked", c:45, gi:73, na:2},
+  {k:["roti","chapati","chapatti","phulka"], n:"Roti / chapati", p:"1 piece", c:18, gi:62, na:120},
+  {k:["naan","nan"], n:"Naan", p:"1 piece", c:45, gi:71, na:450},
+  {k:["aloo paratha","paratha","parantha"], n:"Paratha", p:"1 piece", c:30, gi:65, na:300},
+  {k:["whole wheat bread","brown bread","whole-wheat toast","whole wheat toast"], n:"Whole-wheat bread", p:"1 slice", c:12, gi:69, na:140},
+  {k:["bread","toast","饅頭"], n:"White bread", p:"1 slice", c:13, gi:75, na:150},
+  {k:["daal","dal","dhal","lentil","lentils"], n:"Daal (lentil curry)", p:"1 cup", c:30, gi:30, na:500},
+  {k:["chana","chole","chickpea","chickpeas"], n:"Chana (chickpea curry)", p:"1 cup", c:35, gi:28, na:550},
+  {k:["rajma","kidney bean"], n:"Rajma (kidney beans)", p:"1 cup", c:35, gi:30, na:500},
+  {k:["nihari"], n:"Nihari", p:"1 bowl", c:10, gi:30, na:1200},
+  {k:["haleem"], n:"Haleem", p:"1 bowl", c:30, gi:40, na:900},
+  {k:["chicken karahi","chicken curry","chicken salan","chicken korma","karahi","korma"], n:"Chicken curry / karahi", p:"1 cup", c:8, gi:30, na:700},
+  {k:["mutton","beef curry","qeema","keema","gosht"], n:"Meat curry", p:"1 cup", c:8, gi:30, na:700},
+  {k:["chicken tikka","grilled chicken","chicken breast","tikka","chicken"], n:"Chicken (grilled)", p:"100 g", c:0, gi:0, na:300},
+  {k:["seekh kebab","chicken kebab","kebab","kabab","seekh"], n:"Kebab", p:"2 pieces", c:4, gi:30, na:600},
+  {k:["fish","salmon","tuna"], n:"Fish", p:"100 g", c:0, gi:0, na:300},
+  {k:["omelette","omelet"], n:"Omelette", p:"2 eggs", c:1, gi:0, na:300},
+  {k:["egg","eggs","anda"], n:"Egg", p:"1 egg", c:0.6, gi:0, na:70},
+  {k:["aloo","potato","potatoes"], n:"Potato curry", p:"1 cup", c:30, gi:80, na:450},
+  {k:["fries","french fries","chips"], n:"French fries", p:"medium", c:47, gi:75, na:270},
+  {k:["sabzi","vegetable","vegetables","veg curry","bhindi","palak","saag","燙青菜","青菜"], n:"Vegetable curry", p:"1 cup", c:12, gi:40, na:400},
+  {k:["salad"], n:"Salad", p:"1 bowl", c:5, gi:15, na:50},
+  {k:["raita","yogurt","yoghurt","dahi"], n:"Raita / yogurt", p:"½ cup", c:8, gi:35, na:80},
+  {k:["samosa"], n:"Samosa", p:"1 piece", c:24, gi:70, na:300},
+  {k:["pakora","pakoda","bhajia"], n:"Pakora", p:"100 g", c:25, gi:65, na:400},
+  {k:["instant noodles","maggi","ramen"], n:"Instant noodles", p:"1 pack", c:50, gi:60, na:1500},
+  {k:["beef noodle","牛肉麵"], n:"Beef noodle soup", p:"1 bowl", c:60, gi:55, na:2000},
+  {k:["chicken noodles","noodles","noodle","麵"], n:"Noodles", p:"1 cup", c:40, gi:55, na:800},
+  {k:["pasta","spaghetti","macaroni"], n:"Pasta", p:"1 cup", c:43, gi:50, na:300},
+  {k:["dumpling","dumplings","jiaozi","水餃","餃子"], n:"Dumplings", p:"6 pieces", c:30, gi:60, na:700},
+  {k:["sushi"], n:"Sushi", p:"6 pieces", c:40, gi:60, na:700},
+  {k:["pizza"], n:"Pizza", p:"1 slice", c:30, gi:60, na:640},
+  {k:["chicken burger","beef burger","burger"], n:"Burger", p:"1", c:35, gi:66, na:900},
+  {k:["chicken sandwich","egg sandwich","sandwich"], n:"Sandwich", p:"1", c:35, gi:65, na:800},
+  {k:["oats","oatmeal"], n:"Oats", p:"1 cup cooked", c:27, gi:55, na:115},
+  {k:["cornflakes","cereal"], n:"Breakfast cereal", p:"1 cup", c:24, gi:81, na:200, s:3},
+  {k:["bubble tea","boba","珍珠奶茶"], n:"Bubble tea", p:"1 cup (500 ml)", c:60, gi:70, na:60, s:50},
+  {k:["chai","milk tea","doodh patti","奶茶"], n:"Milk tea with sugar", p:"1 cup", c:15, gi:60, na:50, s:10},
+  {k:["tea","green tea","coffee"], n:"Tea / coffee (no sugar)", p:"1 cup", c:0, gi:0, na:5},
+  {k:["coke","cola","soda","soft drink","pepsi","sprite"], n:"Soft drink", p:"1 can", c:39, gi:63, na:45, s:39},
+  {k:["juice"], n:"Fruit juice", p:"1 cup", c:26, gi:50, na:10},
+  {k:["lassi"], n:"Sweet lassi", p:"1 glass", c:35, gi:55, na:100, s:25},
+  {k:["milk"], n:"Milk", p:"1 cup", c:12, gi:35, na:100},
+  {k:["banana"], n:"Banana", p:"1 medium", c:27, gi:51, na:1},
+  {k:["apple"], n:"Apple", p:"1 medium", c:25, gi:36, na:2},
+  {k:["mango"], n:"Mango", p:"1 cup", c:25, gi:51, na:2},
+  {k:["dates","khajoor"], n:"Dates", p:"3 dates", c:54, gi:42, na:1},
+  {k:["gulab jamun"], n:"Gulab jamun", p:"2 pieces", c:45, gi:70, na:50, s:30},
+  {k:["kheer","rice pudding"], n:"Kheer", p:"1 cup", c:45, gi:65, na:120, s:25},
+  {k:["jalebi"], n:"Jalebi", p:"2 pieces", c:40, gi:75, na:20, s:30},
+  {k:["cake","pastry","donut","doughnut"], n:"Cake / pastry", p:"1 slice", c:35, gi:70, na:250, s:20},
+  {k:["biscuit","biscuits","cookie","cookies"], n:"Biscuits", p:"3 pieces", c:20, gi:70, na:120, s:8},
+];
+const QTY_WORDS = {half:0.5, "½":0.5, one:1, a:1, an:1, two:2, three:3, four:4, ek:1, do:2, teen:3, chaar:4, char:4, adha:0.5, aadha:0.5};
+function localMealEstimate(text){
+  const parts = String(text).toLowerCase().split(/,|\+|\band\b|\bwith\b|\baur\b|、|，|和|;|\n/).map(x => x.trim()).filter(Boolean);
+  const items = [], unknown = [];
+  const esc_ = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const keyRe = k => /[^\x00-\x7F]/.test(k) ? new RegExp(esc_(k)) : new RegExp("\\b" + esc_(k) + "\\b");
+  const findFood = (s) => {
+    for (const f of FOODS) { const keys = f.k.filter(k => keyRe(k).test(s)).sort((a,b) => b.length - a.length); if (keys.length) return {f, re: keyRe(keys[0])}; }
+    return null;
+  };
+  for (const part of parts) {
+    let q = 1; const mNum = part.match(/(\d+(?:\.\d+)?)/);
+    if (mNum) q = parseFloat(mNum[1]); else { const w = part.split(/\s+/)[0]; if (QTY_WORDS[w] != null) q = QTY_WORDS[w]; }
+    q = Math.min(Math.max(q, 0.25), 6);
+    let rest = part, first = true, found = false, hit;
+    while ((hit = findFood(rest))) {
+      const f = hit.f, qq = first ? q : 1; found = true; first = false;
+      items.push({name:f.n, portion:(qq === 1 ? "" : qq + " × ") + f.p, carbs:f.c*qq, sodium:f.na*qq, gl:f.c*qq*f.gi/100, sugar:(f.s||0)*qq});
+      rest = rest.replace(hit.re, " ");
+    }
+    if (!found) unknown.push(part);
+  }
+  if (!items.length) return null;
+  const sum = k => items.reduce((a, i) => a + i[k], 0);
+  return { items, unknown, carbs: sum("carbs"), sodium: sum("sodium"), gl: sum("gl"), sugar: sum("sugar") };
+}
+function mealTextPrompt(text){
+  return `You estimate nutrition for someone managing ${condText()} from a typed description of what they ate: "${text.slice(0, 300)}".
+Assume typical home or restaurant portions unless amounts are given. Consider South Asian, East Asian and Western dishes.
+Reply with only JSON in this shape:
+{"meal_name":"short name","items":[{"name":"","portion":"","carbs_g":0,"sodium_mg":0}],"total_carbs_g":0,"glycemic_load":0,"sodium_mg":0,"added_sugar_g":0,"confidence":"low|medium|high","reason":"one sentence on the main glucose or blood-pressure driver","swap_tip":"one concrete swap that lowers GL or sodium"}
+If the text does not describe food or drink, reply {"not_food":true}.`;
+}
+function mealFromAI(r, fallbackName){
+  return { id:uid(), t:Date.now(), name: String(r.meal_name || fallbackName || "Meal").slice(0,80),
+    carbs: num(r.total_carbs_g) ?? 0, gl: num(r.glycemic_load), sodium: num(r.sodium_mg) ?? 0, sugar: num(r.added_sugar_g) ?? 0,
+    items: (Array.isArray(r.items) ? r.items : []).slice(0,12).map(i => ({name:String(i.name||""), portion:String(i.portion||""), carbs:num(i.carbs_g)??0, sodium:num(i.sodium_mg)??0})),
+    confidence: String(r.confidence || "medium"), reason: String(r.reason || ""), tip: String(r.swap_tip || "") };
+}
+let typedBusy = false;
+async function analyzeTypedMeal(text, st, skipAI){
+  if (typedBusy) return; typedBusy = true;
+  st.className = "status"; st.innerHTML = `<span class="spin"></span> Estimating your meal…`;
+  let m = null, aiNote = "";
+  try {
+    const r = skipAI ? null : await aiTextJSON(text);
+    if (r && r.not_food) { st.className = "status err"; st.textContent = "That doesn't look like a food or drink. Type what you ate, e.g. 2 roti, 1 cup daal."; typedBusy = false; return; }
+    if (r) m = mealFromAI(r, text);
+  } catch (e) { aiNote = aiErr(e); }
+  if (!m) {
+    const est = localMealEstimate(text);
+    if (!est) {
+      st.className = "status err";
+      st.textContent = "These foods aren't in the built-in list" + (aiNote ? " and AI analysis isn't available right now" : "") + ". Enter carbs and sodium by hand, or scan a photo.";
+      typedBusy = false; return;
+    }
+    m = { id:uid(), t:Date.now(), name: text.slice(0,80), carbs: est.carbs, gl: est.gl, sodium: est.sodium, sugar: est.sugar,
+      items: est.items.map(i => ({name:i.name, portion:i.portion, carbs:i.carbs, sodium:i.sodium})), confidence:"built-in list",
+      reason: est.unknown.length ? "Not recognised, so not counted: " + est.unknown.join(", ") + "." : "", tip: "" };
+  }
+  m.verdict = mealVerdict(m); st.textContent = "";
+  showPlate(m, false); $("#plateResult").scrollIntoView({behavior:"smooth", block:"start"});
+  typedBusy = false;
+}
+
+$("#labelGo").onclick = async () => {
+  if (!labelImg) return; const st = $("#labelStatus");
+  if (!sample || !imgOK) { st.className = "status err"; st.textContent = "Label reading isn't available here."; return; }
+  $("#labelGo").disabled = true; st.className = "status"; st.innerHTML = `<span class="spin"></span> Reading label…`;
+  const prompt = `Read the label in this photo for someone managing ${condText()}. It is either a food nutrition label or a medicine package.
+Reply with only JSON:
+{"kind":"nutrition|medication|unknown","product":"name if visible","serving":"serving size text","per_serving":{"carbs_g":null,"sugar_g":null,"added_sugar_g":null,"sodium_mg":null,"fiber_g":null,"sat_fat_g":null},"flags":["short warnings, e.g. high sodium (>600 mg/serving), hidden sugars by their ingredient names, high saturated fat"],"medication":{"name":"","active_ingredients":[""],"food_interactions":["well-established interactions relevant to diabetes or blood pressure, e.g. grapefruit with some calcium-channel blockers, potassium-rich salt substitutes with ACE inhibitors, alcohol with metformin, decongestants raising BP, NSAIDs raising BP"]},"summary":"two sentences, plain language"}
+Use null for anything not readable. For a nutrition label, leave medication fields empty. Only list interactions that apply to the ingredients you can read.`;
+  try {
+    const r = await aiJSON("label", {condition: S.settings.condition, lang: LANG}, labelImg);
+    showLabel(r || {});
+    st.textContent = "";
+  } catch (e) { st.className = "status err"; st.textContent = aiErr(e).replace("Use the manual form below instead.",""); }
+  finally { $("#labelGo").disabled = false; }
+};
+function showLabel(r){
+  const el = $("#labelResult"); el.hidden = false; const p = r.per_serving || {}; const flags = Array.isArray(r.flags) ? r.flags : [];
+  const isMed = r.kind === "medication";
+  const sodHigh = num(p.sodium_mg) != null && p.sodium_mg > 600, sugHigh = num(p.added_sugar_g) != null && p.added_sugar_g > 10;
+  let html = `<div class="verdict"><span class="big">${esc(r.product || (isMed ? "Medicine" : "Product"))}</span><span class="chip mute">${esc(r.kind || "label")}</span>${!isMed ? (sodHigh || sugHigh ? `<span class="chip bad">Check this</span>` : `<span class="chip ok">Reasonable</span>`) : ""}</div>`;
+  if (!isMed) {
+    const cell = (k, v, u, cls) => `<div class="stat ${cls}"><span class="k">${k}</span><span class="v">${v == null ? "–" : Math.round(v)}<small>${u}</small></span></div>`;
+    html += `${r.serving ? `<p class="sub">Per serving: ${esc(r.serving)}</p>` : ""}<div class="grid2">${cell("Carbs", num(p.carbs_g), "g", "g")}${cell("Added sugar", num(p.added_sugar_g) ?? num(p.sugar_g), "g", "g")}${cell("Sodium", num(p.sodium_mg), "mg", "c")}${cell("Fibre", num(p.fiber_g), "g", "")}</div>`;
+  } else {
+    const med = r.medication || {};
+    html += `${(med.active_ingredients||[]).length ? `<p class="sub"><b>Active ingredients:</b> ${esc(med.active_ingredients.join(", "))}</p>` : ""}`;
+    const fi = (med.food_interactions || []).filter(Boolean);
+    html += fi.length ? `<h3>Food &amp; drink interactions</h3>${fi.map(x => `<div class="alert warn"><div class="bar"></div><div class="body"><div class="d" style="color:var(--ink)">${esc(x)}</div></div></div>`).join("")}` : `<p class="sub">No common food interactions found for what's readable on this label.</p>`;
+    html += `<p class="sub" style="font-size:12px">General information only. Confirm interactions with your pharmacist.</p>`;
+  }
+  if (flags.length) html += `<div style="display:flex;flex-direction:column;gap:6px">${flags.slice(0,6).map(f => `<div class="alert bad"><div class="bar"></div><div class="body"><div class="d" style="color:var(--ink)">${esc(f)}</div></div></div>`).join("")}</div>`;
+  if (r.summary) html += `<p class="sub">${esc(r.summary)}</p>`;
+  if (!isMed && (num(p.carbs_g) != null || num(p.sodium_mg) != null)) html += `<div class="row"><button class="primary" id="lbLog">Log 1 serving as a meal</button></div>`;
+  el.innerHTML = html;
+  const b = $("#lbLog"); if (b) b.onclick = () => { userEntry(); const m = {id:uid(), t:Date.now(), name: String(r.product || "Packaged food").slice(0,80), carbs:num(p.carbs_g)??0, sodium:num(p.sodium_mg)??0, sugar:num(p.added_sugar_g)??num(p.sugar_g)??0, gl: num(p.carbs_g)!=null ? Math.round(num(p.carbs_g)*0.5) : null, items:[], confidence:"label"}; m.verdict = mealVerdict(m); S.meals.push(m); commit(); b.replaceWith(Object.assign(document.createElement("span"), {className:"chip ok", textContent:"Logged"})); };
+}
+
+/* ---------- Pulse (PPG from video) ---------- */
+let pMode = "finger";
+const HOW = {
+  finger: ["Turn on the phone's flashlight (torch).","Cover the rear camera AND flash fully with your fingertip. Press lightly.","Record for 20–30 seconds while sitting still.","Pick the video. Analysis runs on your device; the video is not uploaded."],
+  face: ["Sit facing a window or bright, even light.","Use the front camera; fill the frame with your face. Stay still, don't talk.","Record for 20–30 seconds.","Pick the video. Analysis runs on your device; the video is not uploaded."]
+};
+function setMode(m){ pMode = m; $("#modeFinger").setAttribute("aria-pressed", m==="finger"); $("#modeFace").setAttribute("aria-pressed", m==="face");
+  $("#pulseHow").innerHTML = HOW[m].map(s => `<li>${s}</li>`).join(""); $("#pulseCam").setAttribute("capture", m === "face" ? "user" : "environment"); }
+$("#modeFinger").onclick = () => setMode("finger"); $("#modeFace").onclick = () => setMode("face"); setMode("finger");
+["#pulseCam","#pulseFile"].forEach(id => $(id).addEventListener("change", e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) analyzePulse(f); }));
+
+function extractSamples(file, onProg){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), v = document.createElement("video");
+    v.muted = true; v.playsInline = true; v.preload = "auto"; v.src = url;
+    const c = document.createElement("canvas"), N = 40; c.width = N; c.height = N;
+    const ctx = c.getContext("2d", {willReadFrequently:true}); const S2 = []; let iv = null, done = false;
+    const grab = (t) => {
+      const vw = v.videoWidth, vh = v.videoHeight; if (!vw) return;
+      let sx, sy, sw, sh;
+      if (pMode === "face") { sw = vw*0.36; sh = vh*0.22; sx = (vw-sw)/2; sy = vh*0.22; } // forehead / upper face
+      else { const s = Math.min(vw,vh)*0.6; sw = sh = s; sx = (vw-s)/2; sy = (vh-s)/2; }
+      ctx.drawImage(v, sx, sy, sw, sh, 0, 0, N, N);
+      const d = ctx.getImageData(0,0,N,N).data; let r=0,g=0,b=0; const n = d.length/4;
+      for (let i=0;i<d.length;i+=4){ r+=d[i]; g+=d[i+1]; b+=d[i+2]; }
+      S2.push({t, r:r/n, g:g/n, b:b/n});
+    };
+    const finish = () => { if (done) return; done = true; clearInterval(iv); URL.revokeObjectURL(url); resolve({samples:S2, dur:v.duration}); };
+    v.onerror = () => { clearInterval(iv); reject(new Error("This video format can't be read in the browser. Try recording again, or use an MP4.")); };
+    v.onended = finish;
+    v.onloadedmetadata = async () => {
+      if (!isFinite(v.duration) || v.duration < 8) { reject(new Error("The video is too short. Record at least 15 seconds (20–30 is best).")); return; }
+      try {
+        if ("requestVideoFrameCallback" in v) { const cb = (_n, meta) => { grab(meta.mediaTime); onProg(v.currentTime / v.duration); if (!v.ended && !done) v.requestVideoFrameCallback(cb); }; v.requestVideoFrameCallback(cb); }
+        else iv = setInterval(() => { grab(v.currentTime); onProg(v.currentTime / v.duration); }, 33);
+        await v.play();
+      } catch (e) { reject(new Error("The video couldn't be played for analysis. Try a different file.")); }
+    };
+  });
+}
+function estimateBPM(samples){
+  const fs = 30, t0 = samples[0].t + 1.5, t1 = samples[samples.length-1].t;
+  if (t1 - t0 < 8) return null;
+  const chans = ["r","g"], results = [];
+  for (const ch of chans) {
+    // resample to uniform 30 Hz
+    const xs = []; let j = 0;
+    for (let t = t0; t <= t1; t += 1/fs) { while (j < samples.length-2 && samples[j+1].t < t) j++; const a = samples[j], b = samples[j+1] || a; const w = b.t > a.t ? (t-a.t)/(b.t-a.t) : 0; xs.push(a[ch] + (b[ch]-a[ch])*Math.max(0,Math.min(1,w))); }
+    const mean = xs.reduce((s,x)=>s+x,0)/xs.length; if (ch === "r" && mean > 252) continue; // saturated
+    // detrend (1 s moving average) + light smoothing
+    const W = fs, det = xs.map((x,i) => { let s=0,c=0; for (let k=Math.max(0,i-W/2);k<Math.min(xs.length,i+W/2);k++){s+=xs[k];c++;} return x - s/c; });
+    const sm = det.map((_,i) => (det[i-1]??det[i]) * .25 + det[i]*.5 + (det[i+1]??det[i]) * .25);
+    const sd = Math.sqrt(sm.reduce((s,x)=>s+x*x,0)/sm.length) || 1; const z = sm.map(x => x/sd);
+    // spectrum 42–180 bpm
+    let best = 0, bestP = 0, tot = 0, cnt = 0; const spec = [];
+    for (let bpm = 42; bpm <= 180; bpm += 0.5) { const f = bpm/60; let re=0, im=0; for (let i=0;i<z.length;i++){ const a = 2*Math.PI*f*i/fs; re += z[i]*Math.cos(a); im += z[i]*Math.sin(a); } const p = re*re+im*im; spec.push(p); tot += p; cnt++; if (p > bestP) { bestP = p; best = bpm; } }
+    const snr = bestP / (tot/cnt);
+    results.push({ch, bpm: Math.round(best), snr, wave: z.slice(-fs*8)});
+  }
+  if (!results.length) return null;
+  return results.sort((a,b)=>b.snr-a.snr)[0];
+}
+async function analyzePulse(file){
+  const st = $("#pulseStatus"), res = $("#pulseResult"); res.hidden = true; st.className = "status";
+  st.innerHTML = `<span class="spin"></span> Reading video… 0%`;
+  try {
+    const {samples} = await extractSamples(file, p => { st.innerHTML = `<span class="spin"></span> Reading video… ${Math.min(99, Math.round(p*100))}%`; });
+    if (samples.length < 150) throw new Error("Not enough frames could be read. Record again at normal speed, 20–30 seconds.");
+    const meanR = samples.reduce((s,x)=>s+x.r,0)/samples.length, meanG = samples.reduce((s,x)=>s+x.g,0)/samples.length;
+    const fingerLike = meanR > 90 && meanR > meanG*1.8;
+    const r = estimateBPM(samples);
+    if (!r) throw new Error("The usable part of the video was too short.");
+    const quality = r.snr >= 6 ? "good" : r.snr >= 3.5 ? "fair" : "poor";
+    st.textContent = "";
+    const W = 640, H = 120, wv = r.wave, mn = Math.min(...wv), mx = Math.max(...wv);
+    const pts = wv.map((v,i) => (i/(wv.length-1)*W).toFixed(1) + "," + (H-8-(v-mn)/(mx-mn||1)*(H-16)).toFixed(1)).join(" ");
+    const hint = pMode === "finger" && !fingerLike ? "The camera didn't look fully covered. Cover lens and flash completely with the torch on." : pMode === "face" ? "Face scans are sensitive to movement and lighting; a fingertip scan is usually steadier." : "";
+    const hrClass = r.bpm > 100 ? ["warn","Above resting range"] : r.bpm < 50 ? ["warn","Below typical range"] : ["ok","Typical resting range"];
+    res.hidden = false;
+    res.innerHTML = `<div class="verdict"><span class="timer" style="color:var(--cardio)">${r.bpm}</span><span class="big" style="font-size:18px">bpm</span><span class="chip ${quality==="good"?"ok":quality==="fair"?"warn":"bad"}">${quality} signal</span>${quality!=="poor" ? `<span class="chip ${hrClass[0]}">${hrClass[1]}</span>` : ""}</div>
+      <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Pulse waveform, last 8 seconds"><polyline fill="none" stroke="var(--cardio)" stroke-width="2" points="${pts}"/></svg>
+      <p class="sub">Pulse waveform, last 8 seconds of the video.${quality==="poor" ? " The signal was too noisy to trust this number, so it isn't saved. Hold still and try again." : ""}</p>
+      ${hint ? `<p class="sub">${hint}</p>` : ""}
+      <div class="row">${quality !== "poor" ? `<button class="primary" id="hrSave">Save reading</button>` : ""}</div>`;
+    const b = $("#hrSave"); if (b) b.onclick = () => { userEntry(); S.hr.push({id:uid(), t:Date.now(), bpm:r.bpm, quality, mode:pMode}); commit(); b.replaceWith(Object.assign(document.createElement("span"), {className:"chip ok", textContent:"Saved"})); };
+  } catch (e) { st.className = "status err"; st.textContent = e.message || "The video couldn't be analyzed."; }
+}
+
+/* ---------- Motion sensor step counter ---------- */
+// Step detection from the accelerometer: smooth the acceleration magnitude,
+// subtract a slow running average (gravity), count a step on each peak above
+// a threshold, with at least 300 ms between steps (max ~200 steps/min).
+const Motion = {
+  on:false, count:0, base:null, lp:null, above:false, last:0, got:false, handler:null, users:0,
+  onStep:null,
+  async start(){
+    this.users++;
+    if (this.on) return;
+    if (!("DeviceMotionEvent" in window)) { this.users--; throw {code:"no_sensor"}; }
+    if (typeof DeviceMotionEvent.requestPermission === "function") {
+      let perm = "denied"; try { perm = await DeviceMotionEvent.requestPermission(); } catch {}
+      if (perm !== "granted") { this.users--; throw {code:"denied"}; }
+    }
+    this.count = 0; this.base = null; this.lp = null; this.above = false; this.last = 0; this.got = false;
+    this.handler = (e) => {
+      const a = e.accelerationIncludingGravity; if (!a || a.x == null) return;
+      this.got = true;
+      const m = Math.sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
+      this.base = this.base == null ? m : this.base*0.98 + m*0.02;
+      this.lp = this.lp == null ? m : this.lp*0.7 + m*0.3;
+      const d = this.lp - this.base, now = performance.now();
+      if (!this.above && d > 1.1 && now - this.last > 300) { this.above = true; this.last = now; this.count++; if (this.onStep) this.onStep(this.count); }
+      else if (this.above && d < 0.25) this.above = false;
+    };
+    window.addEventListener("devicemotion", this.handler);
+    this.on = true;
+    setTimeout(() => { if (this.on && !this.got) document.dispatchEvent(new Event("motion-nodata")); }, 3000);
+  },
+  read(){ return this.count; },
+  release(){ this.users = Math.max(0, this.users-1); if (this.users === 0) this.stop(); },
+  stop(){ if (this.handler) window.removeEventListener("devicemotion", this.handler); this.handler = null; this.on = false; }
+};
+function motionMsg(e){
+  if (e && e.code === "denied") return "Motion access was denied. Allow \"Motion & Orientation\" for this site in your browser settings, then try again.";
+  return "This device or browser has no motion sensor. Enter steps by hand below.";
+}
+document.addEventListener("motion-nodata", () => {
+  const msg = "No motion data is coming in. Phones and tablets have this sensor; most computers don't.";
+  $("#motionStatus").textContent = msg; $("#motionStatus").className = "status err";
+});
+let liveBase = 0, liveOn = false, liveLock = null;
+Motion.onStep = (n) => {
+  if (liveOn) $("#liveSteps").textContent = (n - liveBase).toLocaleString();
+  if (walkIv) $("#walkLive").textContent = (n - walkBase).toLocaleString();
+};
+$("#motionStart").onclick = async () => {
+  const st = $("#motionStatus"); st.className = "status";
+  try { await Motion.start(); } catch (e) { st.className = "status err"; st.textContent = motionMsg(e); return; }
+  liveOn = true; liveBase = Motion.read(); $("#liveSteps").textContent = "0";
+  $("#motionStart").disabled = true; $("#motionStop").disabled = false; st.textContent = "Counting. Start walking.";
+  try { liveLock = await navigator.wakeLock?.request("screen"); } catch {}
+};
+$("#motionStop").onclick = () => {
+  const n = Motion.read() - liveBase; liveOn = false; Motion.release(); try { liveLock && liveLock.release(); } catch {}
+  $("#motionStart").disabled = false; $("#motionStop").disabled = true;
+  const st = $("#motionStatus"); st.className = "status";
+  if (n > 0) { userEntry(); const k = today(); S.steps[k] = {n: stepsOn(k) + n}; commit(); st.textContent = n.toLocaleString() + " steps added to today."; }
+  else st.textContent = "No steps were counted.";
+  $("#liveSteps").textContent = "0";
+};
+
+/* ---------- Walk timer ---------- */
+let walkStartT = 0, walkIv = null, wakeLock = null, walkBase = 0, walkSensor = false;
+async function startWalk(){
+  if (walkIv) return; walkStartT = Date.now(); $("#walkStart").disabled = true; $("#walkStop").disabled = false; $("#walkSave").hidden = true;
+  const m = S.meals.filter(x => Date.now() - x.t < 2*HOUR).sort((a,b)=>b.t-a.t)[0];
+  $("#walkNote").textContent = m ? "Post-meal walk after " + m.name + ". Aim for 10–15 minutes." : "Walking. Keep this page open; it keeps the screen awake where allowed.";
+  walkSensor = false;
+  try { await Motion.start(); walkSensor = true; walkBase = Motion.read(); $("#walkLiveRow").hidden = false; $("#walkLive").textContent = "0"; }
+  catch { $("#walkLiveRow").hidden = true; }
+  try { wakeLock = await navigator.wakeLock?.request("screen"); } catch {}
+  walkIv = setInterval(() => { const s = Math.floor((Date.now()-walkStartT)/1000); $("#timer").textContent = String(Math.floor(s/60)).padStart(2,"0") + ":" + String(s%60).padStart(2,"0"); }, 500);
+}
+$("#walkStart").onclick = startWalk;
+$("#walkStop").onclick = () => { clearInterval(walkIv); walkIv = null; try { wakeLock && wakeLock.release(); } catch {}
+  const mins = Math.max(1, Math.round((Date.now()-walkStartT)/60e3));
+  const counted = walkSensor ? Motion.read() - walkBase : 0;
+  if (walkSensor) Motion.release();
+  $("#walkStart").disabled = false; $("#walkStop").disabled = true; $("#walkSave").hidden = false; $("#walkLiveRow").hidden = true;
+  if (counted > 0) { $("#walkSteps").value = counted; $("#walkNote").textContent = mins + " min walked. Steps were counted by the motion sensor."; }
+  else { $("#walkSteps").value = mins * 100; $("#walkNote").textContent = mins + " min walked. The step figure is a rough estimate (about 100 steps/min); replace it with your phone's count if you have it."; }
+  $("#walkSave").dataset.mins = mins; };
+$("#walkSaveBtn").onclick = () => { userEntry(); const mins = +$("#walkSave").dataset.mins || 1, steps = Math.max(0, Math.round(num($("#walkSteps").value) || 0)), t = Date.now();
+  const postMeal = S.meals.some(m => t - m.t < 2*HOUR && t - m.t > 0);
+  S.walks.push({id:uid(), t, mins, steps, postMeal}); const k = today(); S.steps[k] = {n: stepsOn(k) + steps}; commit();
+  $("#walkSave").hidden = true; $("#timer").textContent = "00:00"; $("#walkNote").textContent = "Walk saved" + (postMeal ? " as a post-meal walk." : "."); };
+$("#sAdd").onclick = () => { const d = $("#sDate").value.trim(), n = num($("#sCount").value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || n == null || n < 0) { $("#walkNote").textContent = "Enter a date as YYYY-MM-DD and a step count."; return; }
+  userEntry(); S.steps[d] = {n: Math.round(n)}; $("#sCount").value = ""; commit(); };
+
+/* ---------- Readings ---------- */
+$("#gAdd").onclick = () => { const raw = num($("#gVal").value); const st = $("#logStatus");
+  if (raw == null || raw <= 0) { st.className="status err"; st.textContent = "Enter a glucose value."; return; }
+  const v = fromUnit(raw); if (v < 20 || v > 600) { st.className="status err"; st.textContent = "That glucose value looks out of range. Check the unit in Settings."; return; }
+  userEntry(); S.glucose.push({id:uid(), t:Date.now(), v, ctx:$("#gCtx").value}); $("#gVal").value = ""; commit();
+  const c = gClass(v, $("#gCtx").value); st.className = "status"; st.textContent = "Saved: " + toUnit(v) + " " + unitLbl() + " (" + c[1].toLowerCase() + ")."; };
+$("#bAdd").onclick = () => { const s = num($("#bSys").value), d = num($("#bDia").value), p = num($("#bPul").value), st = $("#logStatus");
+  if (s == null || d == null || s < 60 || s > 260 || d < 30 || d > 160 || d >= s) { st.className="status err"; st.textContent = "Enter systolic (top) and diastolic (bottom) numbers from your cuff."; return; }
+  userEntry(); S.bp.push({id:uid(), t:Date.now(), sys:Math.round(s), dia:Math.round(d), pulse: p ? Math.round(p) : null}); ["#bSys","#bDia","#bPul"].forEach(i => $(i).value = ""); commit();
+  st.className = "status"; st.textContent = "Saved: " + Math.round(s) + "/" + Math.round(d) + " (" + bpClass(s,d)[1].toLowerCase() + ")."; };
+$("#setSave").onclick = () => { S.settings.condition = $("#setCond").value; S.settings.unit = $("#setUnit").value;
+  S.settings.stepGoal = Math.max(1000, Math.round(num($("#setGoal").value) || 7000)); S.settings.sodiumLimit = Math.max(500, Math.round(num($("#setSod").value) || 2000));
+  commit(); $("#syncNote").textContent = "Settings saved on this phone."; };
+$("#clearExamples").onclick = () => { clearExamples(); S._userActed = true; commit(); };
+
+/* ---------- Language: English / Traditional Chinese (Taiwan) ---------- */
+// The UI is written in English. In Chinese mode a translator walks the page's
+// text nodes and swaps each English string for its zh-TW version (exact
+// matches first, then patterns for strings that contain numbers or names).
+const ZH_DICT = {
+  "Diabetes & blood pressure companion: scan, walk, track.": "糖尿病與血壓好幫手：掃描、走路、追蹤。",
+  "Diabetes + Hypertension": "糖尿病 + 高血壓",
+  "Diabetes": "糖尿病", "Hypertension": "高血壓",
+  "Today": "今天", "Plate scan": "餐盤掃描", "Pulse scan": "脈搏掃描", "Label scan": "標籤掃描", "Steps": "步數", "Readings": "紀錄",
+  "You're seeing example entries so the app isn't empty. Your own entries replace them.": "目前顯示的是範例資料。新增您自己的紀錄後，範例會自動清除。",
+  "Clear examples": "清除範例",
+  "Post-meal walk window is open": "飯後散步的最佳時機",
+  "Spike-risk": "飆升風險", "Moderate": "中等", "Safe": "安全",
+  "You logged": "您記錄了",
+  "Start a 10-minute walk": "開始 10 分鐘散步",
+  "Spike & Surge alerts": "血糖飆升與血壓警示",
+  "Carbs": "碳水化合物", "Sodium": "鈉", "Steps:": "步數：",
+  "Last glucose": "最近血糖", "Last BP": "最近血壓", "Heart rate": "心率",
+  "camera scan": "相機掃描", "run a pulse scan": "進行脈搏掃描", "none logged": "尚無紀錄",
+  "Blood Vessel Health Score": "血管健康分數",
+  "Movement": "活動量", "BP in target": "血壓達標",
+  "no meals logged (neutral)": "尚無餐點紀錄（中性）", "no readings (neutral)": "尚無讀數（中性）",
+  "A motivation score from your last 7 days: steps vs goal, sodium vs limit, and how many blood pressure readings were in target. It is not a clinical measure.": "根據過去 7 天計算的激勵分數：步數與目標、鈉攝取與上限，以及血壓讀數的達標比例。這不是臨床指標。",
+  "Visual Plate AI": "AI 餐盤辨識",
+  "Take a photo of your plate. The app estimates carbs, glycemic load and sodium, then flags the meal as safe, moderate or spike-risk for your condition.": "拍下您的餐盤。App 會估算碳水化合物、升糖負荷和鈉，並依您的狀況標示為安全、中等或飆升風險。",
+  "Take photo": "拍照", "Choose image": "選擇圖片", "or drop an image here": "或將圖片拖曳到這裡",
+  "What's on the plate? (optional, improves accuracy)": "餐盤裡有什麼？（選填，可提高準確度）",
+  "e.g. chicken biryani, raita, 1 roti": "例如：滷肉飯、燙青菜、味噌湯",
+  "Analyze meal": "分析餐點", "Stop": "停止",
+  "No photo? Log a meal by hand": "沒有照片？手動記錄餐點",
+  "Meal": "餐點", "Lunch": "午餐", "Carbs (g)": "碳水化合物（g）", "Sodium (mg)": "鈉（mg）", "Glycemic load": "升糖負荷", "optional": "選填",
+  "Log meal": "記錄餐點",
+  "Analyzing your plate…": "正在分析您的餐盤…",
+  "Photo analysis isn't available here. Use the manual form below instead.": "此處無法使用照片分析，請改用下方手動表單。",
+  "AI scan isn't set up on the server yet (API key or function missing). Use the manual form below meanwhile.": "伺服器尚未設定 AI 掃描（缺少 API 金鑰或函式）。請先使用下方手動表單。",
+  "No internet connection. Connect and try again.": "沒有網路連線，請連線後再試一次。",
+  "Too many scans in a short time. Wait a minute and try again.": "短時間內掃描次數過多，請稍候一分鐘再試。",
+  "That image couldn't be read. Try a JPEG or PNG under 20 MB.": "無法讀取這張圖片，請改用 20 MB 以下的 JPEG 或 PNG。",
+  "This photo couldn't be analyzed. Try a clearer photo of the food or label.": "無法分析這張照片，請拍一張更清楚的食物或標籤照片。",
+  "The result came back incomplete. Tap the button to try again.": "結果不完整，請再按一次按鈕重試。",
+  "Analysis failed because of a connection problem. Try again.": "連線問題導致分析失敗，請再試一次。",
+  "AI scan isn't working: the API key on the server is wrong. In Netlify, check ANTHROPIC_API_KEY under Environment variables, then redeploy.": "AI 掃描無法使用：伺服器上的 API 金鑰錯誤。請在 Netlify 的環境變數中檢查 ANTHROPIC_API_KEY，然後重新部署。",
+  "AI scan isn't working: the AI account has no credit. Add credit at console.anthropic.com (Billing).": "AI 掃描無法使用：AI 帳戶沒有額度。請到 console.anthropic.com（Billing）儲值。",
+  "AI scan isn't working: the model name on the server is wrong. Delete CLAUDE_MODEL in Netlify settings, then redeploy.": "AI 掃描無法使用：伺服器上的模型名稱錯誤。請刪除 Netlify 設定中的 CLAUDE_MODEL，然後重新部署。",
+  "AI scan isn't set up: the server function wasn't deployed. Deploy the site from GitHub; drag-and-drop uploads skip it.": "AI 掃描尚未設定：伺服器函式沒有部署。請透過 GitHub 部署網站；拖放上傳不會包含函式。",
+  "AI scan isn't set up: add ANTHROPIC_API_KEY in Netlify (Site configuration, Environment variables), then redeploy.": "AI 掃描尚未設定：請在 Netlify（Site configuration > Environment variables）新增 ANTHROPIC_API_KEY，然後重新部署。",
+  "No food found in this photo. Try again with the plate in view.": "照片中找不到食物，請讓餐盤入鏡後再試一次。",
+  "Enter carbs or sodium to log a meal.": "請輸入碳水化合物或鈉才能記錄餐點。",
+  "Added sugar": "添加糖",
+  "Why:": "原因：", "Swap:": "替代建議：",
+  "Estimates can be off by 20–30%. Use your meter for dosing decisions.": "估算可能有 20–30% 誤差。用藥劑量請以血糖機為準。",
+  "No photo? Type what you ate": "沒有照片？輸入您吃了什麼",
+  "Type the foods, for example \"2 roti, 1 cup daal, salad\". Leave carbs and sodium empty and the app estimates them. If you know the numbers, enter them to log directly.": "輸入食物，例如「1 碗白飯、水餃、燙青菜」。碳水化合物和鈉留空，App 會自動估算；若知道數值，可直接輸入記錄。",
+  "What did you eat?": "您吃了什麼？", "e.g. 2 roti, 1 cup daal, salad": "例如：1 碗白飯、水餃、燙青菜",
+  "Estimating your meal…": "正在估算您的餐點…",
+  "Type what you ate, for example: 2 roti, 1 cup daal.": "請輸入您吃了什麼，例如：1 碗白飯、水餃。",
+  "That doesn't look like a food or drink. Type what you ate, e.g. 2 roti, 1 cup daal.": "這看起來不像食物或飲料。請輸入您吃了什麼，例如：1 碗白飯、水餃。",
+  "These foods aren't in the built-in list. Enter carbs and sodium by hand, or scan a photo.": "內建清單中找不到這些食物。請手動輸入碳水化合物和鈉，或拍照掃描。",
+  "These foods aren't in the built-in list and AI analysis isn't available right now. Enter carbs and sodium by hand, or scan a photo.": "內建清單中找不到這些食物，且目前無法使用 AI 分析。請手動輸入碳水化合物和鈉，或拍照掃描。",
+  "Log this meal": "記錄這餐", "Discard": "捨棄", "Logged": "已記錄", "Start post-meal walk": "開始飯後散步",
+  "high": "高", "medium": "中", "low": "低", "n/a": "不適用",
+  "Pulse-Check Vision": "相機脈搏檢測",
+  "Heart rate from a short camera video, using photoplethysmography (PPG): tiny colour changes in skin as blood pulses.": "利用光體積變化描記法（PPG），從一段短影片測量心率：血液搏動時皮膚顏色會有細微變化。",
+  "Fingertip (more accurate)": "指尖（較準確）", "Face": "臉部",
+  "Turn on the phone's flashlight (torch).": "打開手機手電筒。",
+  "Cover the rear camera AND flash fully with your fingertip. Press lightly.": "用指尖完全蓋住後鏡頭和閃光燈，輕輕按壓。",
+  "Record for 20–30 seconds while sitting still.": "坐好不動，錄影 20–30 秒。",
+  "Pick the video. Analysis runs on your device; the video is not uploaded.": "選擇影片。分析在您的裝置上進行，影片不會上傳。",
+  "Sit facing a window or bright, even light.": "面向窗戶或明亮均勻的光線坐好。",
+  "Use the front camera; fill the frame with your face. Stay still, don't talk.": "使用前鏡頭，讓臉部填滿畫面。保持不動，不要說話。",
+  "Record for 20–30 seconds.": "錄影 20–30 秒。",
+  "Record 20-second video": "錄製 20 秒影片", "Choose video": "選擇影片",
+  "About blood pressure from the camera": "關於用相機測血壓",
+  "Camera-only blood pressure estimates are still research-grade and can be off by a wide margin, so this app does not show one. For blood pressure trends, log readings from a validated cuff under Readings; the app charts them and uses them in alerts and your score.": "僅用相機估算血壓仍屬研究階段，誤差可能很大，因此本 App 不顯示此數值。若要追蹤血壓趨勢，請在「紀錄」中輸入經過驗證的血壓計讀數；App 會繪製圖表，並用於警示和分數計算。",
+  "Not enough frames could be read. Record again at normal speed, 20–30 seconds.": "可讀取的影格不足，請以正常速度重新錄製 20–30 秒。",
+  "The usable part of the video was too short.": "影片可用的部分太短。",
+  "The video is too short. Record at least 15 seconds (20–30 is best).": "影片太短，請至少錄 15 秒（20–30 秒最佳）。",
+  "This video format can't be read in the browser. Try recording again, or use an MP4.": "瀏覽器無法讀取此影片格式，請重新錄影或改用 MP4。",
+  "The video couldn't be played for analysis. Try a different file.": "影片無法播放分析，請換一個檔案。",
+  "The video couldn't be analyzed.": "無法分析這段影片。",
+  "Pulse waveform, last 8 seconds of the video.": "脈搏波形（影片最後 8 秒）。",
+  "Pulse waveform, last 8 seconds of the video. The signal was too noisy to trust this number, so it isn't saved. Hold still and try again.": "脈搏波形（影片最後 8 秒）。訊號雜訊太多，此數值不可靠，因此不會儲存。請保持不動再試一次。",
+  "The camera didn't look fully covered. Cover lens and flash completely with the torch on.": "鏡頭似乎沒有完全蓋住。請打開手電筒，並完全蓋住鏡頭和閃光燈。",
+  "Face scans are sensitive to movement and lighting; a fingertip scan is usually steadier.": "臉部掃描容易受動作和光線影響，指尖掃描通常較穩定。",
+  "Above resting range": "高於靜止範圍", "Below typical range": "低於一般範圍", "Typical resting range": "一般靜止範圍",
+  "Save reading": "儲存讀數", "Saved": "已儲存",
+  "Label scanner": "標籤掃描器",
+  "Photograph a nutrition label or a medicine box/bottle. The app reads it and flags hidden sodium, added sugar, and common food interactions.": "拍下營養標示或藥盒／藥瓶。App 會讀取內容，並標示隱藏的鈉、添加糖及常見的食物交互作用。",
+  "Read label": "讀取標籤", "Reading label…": "正在讀取標籤…",
+  "Label reading isn't available here.": "此處無法讀取標籤。",
+  "Check this": "請注意", "Reasonable": "尚可", "Medicine": "藥品", "Product": "產品", "Packaged food": "包裝食品",
+  "nutrition": "營養標示", "medication": "藥品", "unknown": "未知", "label": "標籤",
+  "Active ingredients:": "有效成分：", "Food & drink interactions": "食物與飲料交互作用",
+  "No common food interactions found for what's readable on this label.": "依標籤上可讀取的內容，未發現常見的食物交互作用。",
+  "General information only. Confirm interactions with your pharmacist.": "僅供一般參考，交互作用請向藥師確認。",
+  "Log 1 serving as a meal": "將 1 份記錄為餐點",
+  "Kinetic Step Engine": "智慧步數引擎",
+  "Steps are tied to your meals: a short walk soon after eating helps blunt the glucose rise, and regular movement through the day supports healthy blood pressure.": "步數與您的餐點連動：飯後短暫散步有助於減緩血糖上升，全天規律活動則有助於維持健康血壓。",
+  "7-day average": "7 天平均", "Post-meal walks": "飯後散步", "this week": "本週", "Today vs goal": "今日目標達成",
+  "Live step counter": "即時計步器",
+  "Counts steps with your phone's motion sensor (accelerometer). Hold the phone or keep it in a front pocket, and keep this screen open.": "使用手機的動作感測器（加速度計）計步。請將手機拿在手上或放在前口袋，並保持此畫面開啟。",
+  "steps counted": "步", "Start counting": "開始計步", "Stop and add to today": "停止並加入今日步數",
+  "Counting. Start walking.": "計步中，開始走吧。", "No steps were counted.": "沒有偵測到步數。",
+  "Motion access was denied. Allow \"Motion & Orientation\" for this site in your browser settings, then try again.": "動作感測權限被拒絕。請在瀏覽器設定中允許此網站使用「動作與方向」，然後再試一次。",
+  "This device or browser has no motion sensor. Enter steps by hand below.": "此裝置或瀏覽器沒有動作感測器，請在下方手動輸入步數。",
+  "No motion data is coming in. Phones and tablets have this sensor; most computers don't.": "沒有收到動作資料。手機和平板有此感測器，大多數電腦沒有。",
+  "Walk timer": "散步計時器", "steps this walk (motion sensor)": "本次散步步數（動作感測器）",
+  "Start walk": "開始散步", "Finish": "結束",
+  "Tip: keep this page open while you walk. Steps are counted by the motion sensor where your phone allows it.": "提示：散步時請保持此頁面開啟。若手機支援，會用動作感測器計步。",
+  "Walking. Keep this page open; it keeps the screen awake where allowed.": "散步中。請保持此頁面開啟，系統允許時會讓螢幕保持常亮。",
+  "Steps for this walk": "本次散步步數", "Save walk": "儲存散步",
+  "Walk saved.": "散步已儲存。", "Walk saved as a post-meal walk.": "已儲存為飯後散步。",
+  "Add steps from your phone's health app": "從手機健康 App 加入步數",
+  "Date": "日期", "Total steps that day": "當日總步數", "Save": "儲存",
+  "Enter a date as YYYY-MM-DD and a step count.": "請以 YYYY-MM-DD 格式輸入日期和步數。",
+  "Last 7 days": "過去 7 天",
+  "Log a reading": "新增讀數", "Glucose (": "血糖（", "When": "時間點",
+  "Fasting": "空腹", "Before meal": "餐前", "1–2 h after meal": "餐後 1–2 小時", "Random": "隨機",
+  "Add glucose": "新增血糖", "Systolic (mmHg)": "收縮壓（mmHg）", "Diastolic (mmHg)": "舒張壓（mmHg）", "Pulse (bpm)": "脈搏（bpm）", "Add BP": "新增血壓",
+  "Enter a glucose value.": "請輸入血糖值。",
+  "That glucose value looks out of range. Check the unit in Settings.": "這個血糖值似乎超出範圍，請在設定中確認單位。",
+  "Enter systolic (top) and diastolic (bottom) numbers from your cuff.": "請輸入血壓計上的收縮壓（上）和舒張壓（下）。",
+  "Glucose trend": "血糖趨勢", "Blood pressure trend": "血壓趨勢", "target zone": "目標範圍",
+  "Glucose": "血糖", "Systolic": "收縮壓", "Diastolic": "舒張壓", "No readings yet.": "尚無讀數。",
+  "History": "歷史紀錄", "Type": "類型", "Value": "數值", "Status": "狀態", "Note": "備註",
+  "Delete": "刪除", "Delete entry": "刪除紀錄", "Nothing logged yet.": "尚無任何紀錄。",
+  "BP": "血壓", "Walk": "散步", "post-meal": "飯後",
+  "fasting": "空腹", "before meal": "餐前", "after meal": "餐後", "random": "隨機",
+  "Very low": "非常低", "Low": "偏低", "Above target": "高於目標", "In target": "達標", "In range": "正常範圍",
+  "Crisis range": "危險範圍", "Stage 2": "第二期", "Stage 1": "第一期", "Elevated": "偏高", "Normal": "正常",
+  "good signal": "訊號良好", "fair signal": "訊號普通", "poor signal": "訊號不佳",
+  "Settings": "設定", "Managing": "管理項目", "Glucose unit": "血糖單位", "Daily step goal": "每日步數目標", "Daily sodium limit (mg)": "每日鈉上限（mg）",
+  "Save settings": "儲存設定", "Settings saved on this phone.": "設定已儲存在此手機。",
+  "Saved on this device only.": "僅儲存在此裝置。",
+  "HypoDiabetic Monitor gives estimates to support everyday habits. It is not a medical device and does not replace your glucometer, BP cuff, doctor or pharmacist. If glucose is below 70 mg/dL with symptoms, or BP is 180/120 or higher, act on your care plan or seek urgent care.": "HypoDiabetic Monitor 提供估算值以協助日常習慣養成。本 App 不是醫療器材，無法取代您的血糖機、血壓計、醫師或藥師。若血糖低於 70 mg/dL 並有症狀，或血壓達 180/120 以上，請依照您的照護計畫處理或立即就醫。",
+  "Privacy policy": "隱私權政策", "Language": "語言", "Sections": "區塊", "Score": "分數", "Scan mode": "掃描模式",
+  "Steps, last 7 days": "過去 7 天步數", "Meal photo": "餐點照片", "Label photo": "標籤照片",
+  "All clear right now": "目前一切正常",
+  "No spike or surge patterns in your recent meals, steps and readings.": "最近的餐點、步數和讀數中沒有發現飆升或升高的模式。",
+  "Treat a low now with 15 g fast-acting carbs and recheck in 15 minutes. Don't go for a walk until it's back above 70 mg/dL.": "請立即補充 15 g 快速吸收的碳水化合物，15 分鐘後再測一次。血糖回到 70 mg/dL 以上前請勿散步。",
+  "Rest 5 minutes and measure again. If it's still this high, or you have chest pain, headache or vision changes, seek urgent care.": "休息 5 分鐘後再量一次。若仍然這麼高，或有胸痛、頭痛或視力變化，請立即就醫。",
+  "Sodium over today's limit": "今日鈉攝取已超標", "Sodium close to limit": "鈉攝取接近上限",
+  "Low movement today": "今日活動量偏低", "7-day BP average is high": "7 天平均血壓偏高", "Repeated post-meal highs": "多次飯後血糖偏高",
+  "Chicken biryani with raita": "雞肉香料飯配優格醬", "Eggs, whole-wheat toast, tea": "雞蛋、全麥吐司、茶",
+  "Sat": "週六", "Sun": "週日", "Mon": "週一", "Tue": "週二", "Wed": "週三", "Thu": "週四", "Fri": "週五",
+};
+const ZH = {}; for (const k in ZH_DICT) ZH[k.toLowerCase()] = ZH_DICT[k];
+const ZH_RULES = [
+  [/^(\d+) meals? logged$/, m => `已記錄 ${m[1]} 餐`],
+  [/^limit ([\d,]+) mg$/, m => `上限 ${m[1]} mg`],
+  [/^goal ([\d,]+)$/, m => `目標 ${m[1]}`],
+  [/^avg ([\d,]+) steps\/day$/, m => `平均每日 ${m[1]} 步`],
+  [/^(\d+) day\(s\) with meals logged$/, m => `${m[1]} 天有餐點紀錄`],
+  [/^(\d+) reading\(s\) this week$/, m => `本週 ${m[1]} 筆讀數`],
+  [/^([\d,.]+) g carbs$/, m => `碳水 ${m[1]} g`],
+  [/^([\d,.]+) mg Na$/, m => `鈉 ${m[1]} mg`],
+  [/^([\d,]+) min$/, m => `${m[1]} 分鐘`],
+  [/^([\d,]+) steps$/, m => `${m[1]} 步`],
+  [/^camera, (finger|face)$/, m => `相機（${m[1] === "finger" ? "指尖" : "臉部"}）`],
+  [/^(low|medium|high|manual|label) confidence$/, m => ({low:"低",medium:"中",high:"高",manual:"手動",label:"標籤"})[m[1]] + "可信度"],
+  [/^built-in list confidence$/, m => "內建清單估算"],
+  [/^Not recognised, so not counted: (.+)\.$/, m => `無法辨識，未計入：${m[1]}。`],
+  [/^(\d+)% of daily limit$/, m => `每日上限的 ${m[1]}%`],
+  [/^Reading video… (\d+)%$/, m => `讀取影片中… ${m[1]}%`],
+  [/^(\d+) min ago\. After-meal glucose usually peaks 30–90 minutes after eating, so a 10–15 minute walk now is well timed\.$/, m => `（${m[1]} 分鐘前）。飯後血糖通常在進食後 30–90 分鐘達到高峰，現在散步 10–15 分鐘正是時候。`],
+  [/^Low glucose: (.+)$/, m => `低血糖：${m[1]}`],
+  [/^Very high BP: (.+)$/, m => `血壓過高：${m[1]}`],
+  [/^Spike risk after (.+)$/, m => `${tr(m[1]) || m[1]}後有血糖飆升風險`],
+  [/^High glycemic load \((\d+)\) and no walk logged since\. A 10–15 minute walk now can help lower the after-meal rise\.$/, m => `升糖負荷高（${m[1]}），且之後沒有散步紀錄。現在散步 10–15 分鐘有助於降低飯後血糖上升。`],
+  [/^([\d,]+) mg logged vs ([\d,]+) mg limit\. Choose low-salt options for the rest of the day and drink water\.$/, m => `已記錄 ${m[1]} mg，上限為 ${m[2]} mg。今天接下來請選擇低鹽食物並多喝水。`],
+  [/^([\d,]+) of ([\d,]+) mg used today\.$/, m => `今天已用掉 ${m[2]} mg 中的 ${m[1]} mg。`],
+  [/^([\d,]+) steps so far\. Low activity plus (a high-carb day|evening meals) raises tomorrow's fasting reading risk\.$/, m => `目前 ${m[1]} 步。活動量低再加上${m[2] === "a high-carb day" ? "高碳水的一天" : "晚餐"}，會提高明天空腹血糖偏高的風險。`],
+  [/^Average systolic (\d+) mmHg over (\d+) readings\. Share this trend with your doctor\.$/, m => `${m[2]} 筆讀數的平均收縮壓為 ${m[1]} mmHg。請將此趨勢告訴您的醫師。`],
+  [/^(\d+) after-meal readings above 180 mg\/dL this week\. Plate scans plus post-meal walks target exactly this\.$/, m => `本週有 ${m[1]} 次飯後血糖高於 180 mg/dL。餐盤掃描加上飯後散步正是針對這個問題。`],
+  [/^Post-meal walk after (.+)\. Aim for 10–15 minutes\.$/, m => `${tr(m[1]) || m[1]}後的飯後散步，目標 10–15 分鐘。`],
+  [/^(\d+) min walked\. Steps were counted by the motion sensor\.$/, m => `已走 ${m[1]} 分鐘。步數由動作感測器計算。`],
+  [/^(\d+) min walked\. The step figure is a rough estimate \(about 100 steps\/min\); replace it with your phone's count if you have it\.$/, m => `已走 ${m[1]} 分鐘。步數為粗略估算（約每分鐘 100 步），若手機有計步數據請替換。`],
+  [/^([\d,]+) steps added to today\.$/, m => `已將 ${m[1]} 步加入今日。`],
+  [/^Saved: (.+) \((.+)\)\.$/, m => `已儲存：${m[1]}（${tr(m[2]) || m[2]}）。`],
+  [/^Meal logged: (.+) \((.+)\)\.$/, m => `已記錄餐點：${m[1]}（${({"spike-risk":"飆升風險",moderate:"中等",safe:"安全"})[m[2]] || m[2]}）。`],
+  [/^Per serving: (.+)$/, m => `每份：${m[1]}`],
+  [/^(.+?) Typed meals still work with the built-in food list\.$/, m => `${tr(m[1]) || m[1]} 輸入文字的餐點仍可用內建食物清單估算。`],
+  [/^(.+?) Showing an estimate from what you typed instead\.$/, m => `${tr(m[1]) || m[1]} 改為顯示依您輸入內容的估算。`],
+  [/^(.+?) Meanwhile, type what's on the plate in the box above and tap Analyze meal for an estimate from the built-in food list\.$/, m => `${tr(m[1]) || m[1]} 您可以先在上方輸入餐盤內容，再按「分析餐點」，用內建食物清單估算。`],
+];
+let LANG = "en";
+try { const v = localStorage.getItem("hdm.lang"); LANG = v === "zh" || v === "en" ? v : (/^zh/i.test(navigator.language || "") ? "zh" : "en"); } catch {}
+function tr(text){
+  const k = text.trim(); if (!k) return null;
+  const hit = ZH[k.toLowerCase()]; if (hit) return text.replace(k, hit);
+  for (const [re, f] of ZH_RULES) { const m = k.match(re); if (m) return text.replace(k, f(m)); }
+  if (k.includes(" · ")) { const parts = k.split(" · "); const out = parts.map(p => tr(p) || p); if (out.some((p, i) => p !== parts[i])) return text.replace(k, out.join(" · ")); }
+  return null;
+}
+const ORIG = new WeakMap();
+function translateTree(root){
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => (!n.parentElement || n.parentElement.closest("#langSel, script, style")) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  let n;
+  while ((n = w.nextNode())) {
+    if (!ORIG.has(n)) ORIG.set(n, n.nodeValue);
+    const o = ORIG.get(n), want = LANG === "zh" ? (tr(o) ?? o) : o;
+    if (n.nodeValue !== want) n.nodeValue = want;
+  }
+  if (root.querySelectorAll) root.querySelectorAll("[placeholder],[aria-label],[alt]").forEach(el => {
+    for (const at of ["placeholder", "aria-label", "alt"]) {
+      if (!el.hasAttribute(at)) continue;
+      const key = "data-en-" + at;
+      if (!el.hasAttribute(key)) el.setAttribute(key, el.getAttribute(at));
+      const o = el.getAttribute(key), want = LANG === "zh" ? (tr(o) ?? o) : o;
+      if (el.getAttribute(at) !== want) el.setAttribute(at, want);
+    }
+  });
+}
+let trQueued = false;
+new MutationObserver(() => { if (trQueued) return; trQueued = true; queueMicrotask(() => { trQueued = false; translateTree(document.body); }); })
+  .observe(document.body, { childList: true, subtree: true });
+function applyLang(){
+  LOC = LANG === "zh" ? "zh-TW" : undefined;
+  document.documentElement.lang = LANG === "zh" ? "zh-Hant-TW" : "en";
+  document.title = LANG === "zh" ? "HypoDiabetic Monitor 血糖血壓監測" : "HypoDiabetic Monitor";
+  $("#langSel").value = LANG;
+}
+$("#langSel").addEventListener("change", e => {
+  LANG = e.target.value === "zh" ? "zh" : "en";
+  try { localStorage.setItem("hdm.lang", LANG); } catch {}
+  applyLang(); render(); route(); setMode(pMode); translateTree(document.body);
+});
+applyLang();
+
+/* AI setup check: tells the user why photo scans can't work yet. */
+async function checkAISetup(){
+  const box = $("#aiSetup"); let msg = "";
+  try {
+    const r = await fetch("/.netlify/functions/analyze", {cache:"no-store"});
+    if (r.status === 404) msg = aiErr({code:"not_found"});
+    else { const d = await r.json().catch(() => ({})); if (d && d.configured === false) msg = aiErr({code:"server_not_configured"}); }
+  } catch { return; }
+  if (msg) { box.textContent = msg + " Typed meals still work with the built-in food list."; box.hidden = false; } else box.hidden = true;
+}
+/* ---------- Boot ---------- */
+S = normalize(loadLocal() || exampleState());
+render(); route();
+setInterval(() => { if (!$("#v-today").hidden) renderToday(); }, 60e3);
+
+checkAISetup();
+if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+})();
+</script>
+
+</body>
+</html>
